@@ -84,7 +84,7 @@ export default function Login() {
             }
         } catch (err) {
             if (err.code === "ERR_NETWORK") {
-                alert("Backend authentication server is offline. Please check port 8081.");
+                setServerError("Backend authentication server is offline. Please check port 8081.");
             } else if (err.response?.data?.message) {
                 setServerError(err.response.data.message);
             } else {

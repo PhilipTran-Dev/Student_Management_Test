@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
     User,
     Mail,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 
 export default function Register() {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         // Section A: Account Credentials
         email: "",
@@ -132,28 +134,29 @@ export default function Register() {
 
         setLoading(true);
 
-        // Placeholder for API call — bind with backend later
-        // The formData object maps directly to a JSON payload for the Java REST API
         try {
-            // const response = await axios.post("/api/auth/register", {
-            //   email: formData.email,
-            //   password: formData.password,
-            //   fullName: formData.fullName,
-            //   dateOfBirth: formData.dateOfBirth,
-            //   gender: formData.gender,
-            //   phoneNumber: formData.phoneNumber,
-            //   studentId: formData.studentId,
-            //   faculty: formData.faculty,
-            //   major: formData.major,
-            //   class: formData.class,
-            // });
-            // console.log("Registration success:", response.data);
+            const payload = {
+                email: formData.email,
+                password: formData.password,
+                fullName: formData.fullName,
+                role: "STUDENT",
+                dateOfBirth: formData.dateOfBirth,
+                gender: formData.gender,
+                phoneNumber: formData.phoneNumber,
+                studentId: formData.studentId,
+                faculty: formData.faculty,
+                major: formData.major,
+                class: formData.class,
+            };
 
-            // Simulate async call
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            console.log("Register payload ready for API:", formData);
+            await axios.post("http://localhost:8081/api/v1/auth/register", payload);
+
+            alert("Account created successfully! Redirecting to login page...");
+            navigate("/login");
         } catch (err) {
-            if (err.response?.data?.message) {
+            if (err.code === "ERR_NETWORK") {
+                setServerError("Backend authentication server is offline. Please check port 8081.");
+            } else if (err.response?.data?.message) {
                 setServerError(err.response.data.message);
             } else {
                 setServerError("Registration failed. Please try again.");

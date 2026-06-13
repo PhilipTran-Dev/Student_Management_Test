@@ -43,14 +43,15 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const payload = {
+            const loginPayload = {
                 email: formData.email,
                 password: formData.password,
+                role: activeRole.toUpperCase(), // Sends "STUDENT", "TEACHER", or "ADMIN" for server-side role verification
             };
 
             const response = await axios.post(
                 "http://localhost:8081/api/v1/auth/login",
-                payload
+                loginPayload
             );
 
             const { token, refreshToken, fullName, email, role: backendRole } = response.data;

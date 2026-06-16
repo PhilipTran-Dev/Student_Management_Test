@@ -46,7 +46,7 @@ export default function Login() {
             const loginPayload = {
                 email: formData.email,
                 password: formData.password,
-                role: activeRole.toUpperCase(), // Sends "STUDENT", "TEACHER", or "ADMIN" for server-side role verification
+                role: activeRole.toUpperCase(),
             };
 
             const response = await axios.post(

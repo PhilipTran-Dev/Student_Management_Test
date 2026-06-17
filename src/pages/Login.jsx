@@ -50,7 +50,7 @@ export default function Login() {
             };
 
             const response = await axios.post(
-                "http://localhost:8081/api/v1/auth/login",
+                `${import.meta.env.VITE_API_URL}/api/v1/auth/login`,
                 loginPayload
             );
 

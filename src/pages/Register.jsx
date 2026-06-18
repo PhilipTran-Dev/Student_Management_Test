@@ -149,7 +149,6 @@ export default function Register() {
                 class: formData.class,
             };
 
-            // 🟢 ĐÃ SỬA: Ăn theo IP máy ảo từ file .env thần thánh
             const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
             await axios.post(`${API_URL}/api/v1/auth/register`, payload);
 

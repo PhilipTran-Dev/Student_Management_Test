@@ -27,6 +27,6 @@ jobs:
               ports:
                 - "5173:80"' > docker-compose.yml
 
-      - name:
+      - name: run Container Docker by Virtual Docker
         run: |
           docker compose up -d --build frontend

@@ -27,6 +27,11 @@ jobs:
               ports:
                 - "5173:80"' > docker-compose.yml
 
+
+      - name: Clean old Container avoid conflict
+        run: |
+          docker rm -f classroom-frontend-app || true
+
       - name: run Container Docker by Virtual Docker
         run: |
           docker compose up -d --build frontend

@@ -31,7 +31,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
       dockerfile: Dockerfile
     container_name: classroom-frontend-app
     ports:

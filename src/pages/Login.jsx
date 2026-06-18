@@ -51,7 +51,7 @@ export default function Login() {
 
             const response = await axios.post(
                 `${import.meta.env.VITE_API_URL}/api/v1/auth/login`,
-                loginPayloadgit
+                loginPayload
             );
 
             const { token, refreshToken, fullName, email, role: backendRole } = response.data;

@@ -149,13 +149,16 @@ export default function Register() {
                 class: formData.class,
             };
 
-            await axios.post("http://localhost:8081/api/v1/auth/register", payload);
+            // 🟢 ĐÃ SỬA: Ăn theo IP máy ảo từ file .env thần thánh
+            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+            await axios.post(`${API_URL}/api/v1/auth/register`, payload);
 
             alert("Account created successfully! Redirecting to login page...");
             navigate("/login");
         } catch (err) {
             if (err.code === "ERR_NETWORK") {
-                setServerError("Backend authentication server is offline. Please check port 8081.");
+                const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+                setServerError(`Backend authentication server is offline. Please check connection to ${API_URL}`);
             } else if (err.response?.data?.message) {
                 setServerError(err.response.data.message);
             } else {

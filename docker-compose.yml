@@ -1,34 +1,6 @@
+version: '3.8'
+
 services:
-  mysql-db:
-    image: mysql:8.0
-    container_name: mysql-classroom
-    ports:
-      - "3307:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: 0917635632Mysql
-      MYSQL_DATABASE: user_service
-    volumes:
-      - mysql_classroom_data:/var/lib/mysql
-    networks:
-      - classroom-network
-
-  user-service:
-    build:
-      context: ./user-service
-      dockerfile: Dockerfile
-    container_name: user-service-app
-    ports:
-      - "8081:8081"
-    environment:
-      - DB_HOST=mysql-db
-      - DB_NAME=user_service
-      - DB_USER=root
-      - DB_PASSWORD=0917635632Mysql
-    depends_on:
-      - mysql-db
-    networks:
-      - classroom-network
-
   frontend:
     build:
       context: .
@@ -36,12 +8,3 @@ services:
     container_name: classroom-frontend-app
     ports:
       - "5173:80"
-    networks:
-      - classroom-network
-
-volumes:
-  mysql_classroom_data:
-
-networks:
-  classroom-network:
-    driver: bridge

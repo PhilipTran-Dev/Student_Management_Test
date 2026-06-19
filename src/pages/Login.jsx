@@ -69,19 +69,15 @@ export default function Login() {
             // Normalize role to lowercase for frontend route compatibility
             const normalizedRole = backendRole.toLowerCase();
 
-            // Conditional redirection based on role
-            switch (normalizedRole) {
-                case "admin":
-                    navigate("/admin/users");
-                    break;
-                case "teacher":
-                    navigate("/teacher/classes");
-                    break;
-                case "student":
-                    navigate("/student/dashboard");
-                    break;
-                default:
-                    navigate("/");
+            // Conditional redirection based on role (handles "ROLE_" prefix from Spring Security)
+            if (normalizedRole.includes("admin")) {
+                navigate("/admin/users");
+            } else if (normalizedRole.includes("teacher")) {
+                navigate("/teacher/classes");
+            } else if (normalizedRole.includes("student")) {
+                navigate("/student/dashboard");
+            } else {
+                navigate("/");
             }
         } catch (err) {
             if (err.code === "ERR_NETWORK") {

@@ -91,9 +91,11 @@ export default function Login() {
         }
     };
 
-    const handleRoleClick = async (newRole) => {
+    const handleRoleClick = async (e, newRole) => {
+        e.preventDefault();
+        e.stopPropagation();
         setRole(newRole);
-        await handleSubmit(null, newRole);
+        await handleSubmit(e, newRole);
     };
 
     const handleChange = (e) => {
@@ -246,7 +248,7 @@ export default function Login() {
                             <button
                                 type="button"
                                 disabled={loading}
-                                onClick={() => handleRoleClick("teacher")}
+                                onClick={(e) => handleRoleClick(e, "teacher")}
                                 className="flex-1 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 font-medium text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                             >
                                 <Briefcase className="w-4 h-4" />
@@ -255,7 +257,7 @@ export default function Login() {
                             <button
                                 type="button"
                                 disabled={loading}
-                                onClick={() => handleRoleClick("admin")}
+                                onClick={(e) => handleRoleClick(e, "admin")}
                                 className="flex-1 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 font-medium text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                             >
                                 <Shield className="w-4 h-4" />

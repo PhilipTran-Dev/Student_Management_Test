@@ -150,7 +150,7 @@ export default function Register() {
             };
 
             const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
-            await axios.post(`${API_URL}/api/v1/auth/register`, payload);
+            await axios.post(`${API_URL}/api/v1/auth/student/register`, payload);
 
             alert("Account created successfully! Redirecting to login page...");
             navigate("/student/login");

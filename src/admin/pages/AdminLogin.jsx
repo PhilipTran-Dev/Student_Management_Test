@@ -42,7 +42,7 @@ export default function AdminLogin() {
             };
 
             const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/v1/auth/login/admin`,
+                `${import.meta.env.VITE_API_URL}/api/v1/auth/admin/login`,
                 loginPayload
             );
 

@@ -153,7 +153,7 @@ export default function Register() {
             await axios.post(`${API_URL}/api/v1/auth/register`, payload);
 
             alert("Account created successfully! Redirecting to login page...");
-            navigate("/login");
+            navigate("/student/login");
         } catch (err) {
             if (err.code === "ERR_NETWORK") {
                 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
@@ -651,7 +651,7 @@ export default function Register() {
                     <p className="mt-6 text-center text-sm text-gray-500">
                         Already have an account?{" "}
                         <Link
-                            to="/login"
+                            to="/student/login"
                             className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
                         >
                             Sign in

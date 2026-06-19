@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import StudentLayout from "./student/layouts/StudentLayout";
+import StudentLogin from "./student/pages/StudentLogin";
 import StudentDashboardPage from "./student/pages/DashboardPage";
-import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentProfilePage from "./student/pages/ProfilePage";
 import StudentClassListPage from "./student/pages/ClassListPage";
@@ -11,6 +11,7 @@ import StudentAssignmentDetailPage from "./student/pages/AssignmentDetailPage";
 import StudentGradebookPage from "./student/pages/GradebookPage";
 
 import TeacherLayout from "./teacher/layouts/TeacherLayout";
+import TeacherLogin from "./teacher/pages/TeacherLogin";
 import TeacherProfilePage from "./teacher/pages/ProfilePage";
 import TeacherClassListPage from "./teacher/pages/ClassListPage";
 import TeacherClassDetailPage from "./teacher/pages/ClassDetailPage";
@@ -20,6 +21,7 @@ import TeacherSubmissionsPage from "./teacher/pages/SubmissionsPage";
 import TeacherGradebookPage from "./teacher/pages/GradebookPage";
 
 import AdminLayout from "./admin/layouts/AdminLayout";
+import AdminLogin from "./admin/pages/AdminLogin";
 import AdminUserManagementPage from "./admin/pages/UserManagementPage";
 import AdminFacultyManagementPage from "./admin/pages/FacultyManagementPage";
 import AdminCourseManagementPage from "./admin/pages/CourseManagementPage";
@@ -29,11 +31,11 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Unified Login — all roles handled by a single component */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/teacher/login" element={<Login />} />
-        <Route path="/admin/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        {/* Dedicated login pages — each role has its own view */}
+        <Route path="/student/login" element={<StudentLogin />} />
+        <Route path="/teacher/login" element={<TeacherLogin />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/student/register" element={<Register />} />
 
         {/* Student routes */}
         <Route path="/student" element={<StudentLayout />}>

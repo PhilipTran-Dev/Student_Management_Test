@@ -39,6 +39,7 @@ export default function Login() {
 
         if (!validateForm()) return;
 
+        // Ưu tiên sử dụng overrideRole truyền trực tiếp từ click handler để tránh bất đồng bộ state
         const activeRole = overrideRole || role;
         setLoading(true);
 
@@ -91,11 +92,12 @@ export default function Login() {
         }
     };
 
+    // Hàm xử lý chặn đứng sự kiện nổi bọt (Event Bubbling) khi click chọn phân hệ phụ
     const handleRoleClick = async (e, newRole) => {
         e.preventDefault();
-        e.stopPropagation();
-        setRole(newRole);
-        await handleSubmit(e, newRole);
+        e.stopPropagation(); // Ngăn chặn sự kiện truyền ngược lên thẻ <form> cha
+        setRole(newRole);   // Cập nhật giao diện tương ứng với Icon mới
+        await handleSubmit(null, newRole); // Truyền trực tiếp role mới vào xử lý API độc lập
     };
 
     const handleChange = (e) => {

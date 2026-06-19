@@ -46,11 +46,10 @@ export default function Login() {
             const loginPayload = {
                 email: formData.email,
                 password: formData.password,
-                role: activeRole.toUpperCase(),
             };
 
             const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/v1/auth/login`,
+                `${import.meta.env.VITE_API_URL}/api/v1/auth/login/${activeRole.toLowerCase()}`,
                 loginPayload
             );
 

@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { Bell, Menu, User, LogOut, ChevronDown, Settings, Shield } from "lucide-react";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Navbar({ onMenuToggle, notificationCount = 3 }) {
     const [profileOpen, setProfileOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         function handleClickOutside(e) {
@@ -15,6 +19,24 @@ export default function Navbar({ onMenuToggle, notificationCount = 3 }) {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    const handleLogout = async () => {
+        setProfileOpen(false);
+        const refreshToken = localStorage.getItem("refreshToken");
+        try {
+            if (refreshToken) {
+                await axios.post(`${API_URL}/api/v1/auth/logout`, { refreshToken });
+            }
+        } catch (err) {
+            console.error("Logout API error:", err.response?.data?.message || err.message);
+        } finally {
+            localStorage.removeItem("token");
+            localStorage.removeItem("refreshToken");
+            localStorage.removeItem("role");
+            localStorage.removeItem("user");
+            navigate("/admin/login");
+        }
+    };
 
     return (
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-zinc-100">
@@ -80,7 +102,7 @@ export default function Navbar({ onMenuToggle, notificationCount = 3 }) {
                                 </Link>
                                 <hr className="my-1 border-zinc-100" />
                                 <button
-                                    onClick={() => { setProfileOpen(false); window.location.href = "/admin/login"; }}
+                                    onClick={handleLogout}
                                     className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                                 >
                                     <LogOut className="w-4 h-4" />

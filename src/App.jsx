@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
 import StudentLayout from "./student/layouts/StudentLayout";
 import StudentLogin from "./student/pages/StudentLogin";
 import StudentForgotPassword from "./student/pages/StudentForgotPassword";
@@ -43,39 +44,45 @@ function App() {
         <Route path="/student/verifyotp" element={<StudentVerifyOtp />} />
         <Route path="/student/reset-password" element={<StudentResetPassword />} />
 
-        {/* Student routes */}
-        <Route path="/student" element={<StudentLayout />}>
-          <Route index element={<StudentDashboardPage />} />
-          <Route path="dashboard" element={<StudentDashboardPage />} />
-          <Route path="classes" element={<StudentClassListPage />} />
-          <Route path="classes/:classId" element={<StudentClassDetailPage />} />
-          <Route path="assignments" element={<StudentAssignmentListPage />} />
-          <Route path="assignments/:assignmentId" element={<StudentAssignmentDetailPage />} />
-          <Route path="grades" element={<StudentGradebookPage />} />
-          <Route path="profile" element={<StudentProfilePage />} />
+        {/* Student routes (protected) */}
+        <Route element={<ProtectedRoute allowedRole="STUDENT" />}>
+          <Route path="/student" element={<StudentLayout />}>
+            <Route index element={<StudentDashboardPage />} />
+            <Route path="dashboard" element={<StudentDashboardPage />} />
+            <Route path="classes" element={<StudentClassListPage />} />
+            <Route path="classes/:classId" element={<StudentClassDetailPage />} />
+            <Route path="assignments" element={<StudentAssignmentListPage />} />
+            <Route path="assignments/:assignmentId" element={<StudentAssignmentDetailPage />} />
+            <Route path="grades" element={<StudentGradebookPage />} />
+            <Route path="profile" element={<StudentProfilePage />} />
+          </Route>
         </Route>
 
-        {/* Teacher routes */}
-        <Route path="/teacher" element={<TeacherLayout />}>
-          <Route index element={<TeacherClassListPage />} />
-          <Route path="dashboard" element={<TeacherClassListPage />} />
-          <Route path="classes" element={<TeacherClassListPage />} />
-          <Route path="classes/:classId" element={<TeacherClassDetailPage />} />
-          <Route path="assignments" element={<TeacherAssignmentListPage />} />
-          <Route path="assignments/:assignmentId" element={<TeacherAssignmentDetailPage />} />
-          <Route path="submissions" element={<TeacherSubmissionsPage />} />
-          <Route path="grades" element={<TeacherGradebookPage />} />
-          <Route path="profile" element={<TeacherProfilePage />} />
+        {/* Teacher routes (protected) */}
+        <Route element={<ProtectedRoute allowedRole="TEACHER" />}>
+          <Route path="/teacher" element={<TeacherLayout />}>
+            <Route index element={<TeacherClassListPage />} />
+            <Route path="dashboard" element={<TeacherClassListPage />} />
+            <Route path="classes" element={<TeacherClassListPage />} />
+            <Route path="classes/:classId" element={<TeacherClassDetailPage />} />
+            <Route path="assignments" element={<TeacherAssignmentListPage />} />
+            <Route path="assignments/:assignmentId" element={<TeacherAssignmentDetailPage />} />
+            <Route path="submissions" element={<TeacherSubmissionsPage />} />
+            <Route path="grades" element={<TeacherGradebookPage />} />
+            <Route path="profile" element={<TeacherProfilePage />} />
+          </Route>
         </Route>
 
-        {/* Admin routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminUserManagementPage />} />
-          <Route path="dashboard" element={<AdminUserManagementPage />} />
-          <Route path="users" element={<AdminUserManagementPage />} />
-          <Route path="faculties" element={<AdminFacultyManagementPage />} />
-          <Route path="courses" element={<AdminCourseManagementPage />} />
-          <Route path="semesters" element={<AdminSemesterManagementPage />} />
+        {/* Admin routes (protected) */}
+        <Route element={<ProtectedRoute allowedRole="ADMIN" />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminUserManagementPage />} />
+            <Route path="dashboard" element={<AdminUserManagementPage />} />
+            <Route path="users" element={<AdminUserManagementPage />} />
+            <Route path="faculties" element={<AdminFacultyManagementPage />} />
+            <Route path="courses" element={<AdminCourseManagementPage />} />
+            <Route path="semesters" element={<AdminSemesterManagementPage />} />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>

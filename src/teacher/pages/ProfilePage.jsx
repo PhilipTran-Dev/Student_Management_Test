@@ -1,15 +1,15 @@
-import { useState } from "react";
-import { User, Lock, Eye, EyeOff, Save, School, Mail, Phone, BookOpen } from "lucide-react";
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { User, Lock, Eye, EyeOff, Save, School, Mail, Phone, BookOpen, IdCard } from "lucide-react";
+
+const API_URL = import.meta.env.VITE_API_URL;
+const headers = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
 export default function ProfilePage() {
     const [tab, setTab] = useState("profile");
-    const [profile, setProfile] = useState({
-        fullName: "Dr. Tran Van B",
-        email: "tvb@university.edu.vn",
-        phoneNumber: "+84 912 345 678",
-        faculty: "Computer Science & Engineering",
-        department: "Software Engineering",
-    });
+    const [profile, setProfile] = useState(null);
+    const [profileSnapshot, setProfileSnapshot] = useState(null);
+    const [loadingProfile, setLoadingProfile] = useState(true);
     const [editMode, setEditMode] = useState(false);
     const [pwForm, setPwForm] = useState({ current: "", new: "", confirm: "" });
     const [showPw, setShowPw] = useState({ c: false, n: false, cf: false });
@@ -18,8 +18,23 @@ export default function ProfilePage() {
     const [success, setSuccess] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const editable = ["fullName", "phoneNumber"];
-    const labels = { fullName: "Full Name", phoneNumber: "Phone Number" };
+    useEffect(() => {
+        (async () => {
+            setLoadingProfile(true);
+            try {
+                const res = await axios.get(`${API_URL}/api/v1/teacher/profile`, { headers: headers() });
+                setProfile(res.data);
+                setProfileSnapshot(res.data);
+            } catch (err) {
+                setServerError(err.response?.data?.message || "Failed to load profile.");
+            } finally {
+                setLoadingProfile(false);
+            }
+        })();
+    }, []);
+
+    const editable = ["fullName", "phoneNumber", "dateOfBirth", "gender"];
+    const labels = { fullName: "Full Name", phoneNumber: "Phone Number", dateOfBirth: "Date of Birth", gender: "Gender" };
 
     const handleProfileChange = (e) => {
         const { name, value } = e.target;
@@ -30,13 +45,22 @@ export default function ProfilePage() {
     const handleUpdateProfile = async (e) => {
         e.preventDefault(); setServerError(""); setSuccess("");
         const ne = {};
-        if (!profile.fullName.trim()) ne.fullName = "Required";
-        if (!profile.phoneNumber.trim()) ne.phoneNumber = "Required";
+        if (!profile.fullName?.trim()) ne.fullName = "Required";
+        if (!profile.phoneNumber?.trim()) ne.phoneNumber = "Required";
+        if (!profile.dateOfBirth) ne.dateOfBirth = "Required";
+        if (!profile.gender) ne.gender = "Required";
         setErrors(ne); if (Object.keys(ne).length) return;
         setLoading(true);
         try {
-            await new Promise((r) => setTimeout(r, 1000));
-            setSuccess("Profile updated!");
+            const res = await axios.put(`${API_URL}/api/v1/teacher/profile`, {
+                fullName: profile.fullName,
+                phoneNumber: profile.phoneNumber,
+                dateOfBirth: profile.dateOfBirth,
+                gender: profile.gender,
+            }, { headers: headers() });
+            setProfile(res.data);
+            setProfileSnapshot(res.data);
+            setSuccess("Profile updated successfully!");
             setEditMode(false);
         } catch (err) { setServerError(err.response?.data?.message || "Update failed."); }
         finally { setLoading(false); }
@@ -53,8 +77,12 @@ export default function ProfilePage() {
         setErrors(ne); if (Object.keys(ne).length) return;
         setLoading(true);
         try {
-            await new Promise((r) => setTimeout(r, 1000));
-            setSuccess("Password updated!");
+            await axios.put(`${API_URL}/api/v1/teacher/profile/change-password`, {
+                currentPassword: pwForm.current,
+                newPassword: pwForm.new,
+                confirmPassword: pwForm.confirm,
+            }, { headers: headers() });
+            setSuccess("Password updated successfully!");
             setPwForm({ current: "", new: "", confirm: "" });
         } catch (err) { setServerError(err.response?.data?.message || "Failed."); }
         finally { setLoading(false); }
@@ -65,6 +93,29 @@ export default function ProfilePage() {
             ? "border-red-400 ring-2 ring-red-100 bg-red-50"
             : "border-gray-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 bg-white"
         }`;
+
+    if (loadingProfile) {
+        return (
+            <div className="flex items-center justify-center min-h-[300px]">
+                <div className="flex items-center gap-3 text-zinc-400">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="text-sm">Loading profile...</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (!profile) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-zinc-500">Unable to load profile.</p>
+                {serverError && <p className="text-sm text-red-500 mt-2">{serverError}</p>}
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -85,10 +136,10 @@ export default function ProfilePage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         {[
+                            { l: "Teacher ID", v: profile.teacherId || "—", icon: IdCard },
                             { l: "Email", v: profile.email, icon: Mail },
-                            { l: "Faculty", v: profile.faculty, icon: School },
-                            { l: "Department", v: profile.department, icon: BookOpen },
-                            { l: "Role", v: "Teacher", icon: User },
+                            { l: "Faculty", v: profile.faculty || "—", icon: School },
+                            { l: "Phone", v: profile.phoneNumber || "—", icon: Phone },
                         ].map((x) => (
                             <div key={x.l} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{x.l}</p>
@@ -107,21 +158,37 @@ export default function ProfilePage() {
                             {editable.map((f) => (
                                 <div key={f}>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">{labels[f]} <span className="text-red-500">*</span></label>
-                                    <input type={f === "phoneNumber" ? "tel" : "text"} name={f} value={profile[f]} onChange={handleProfileChange} className={ic(f)} />
+                                    {f === "gender" ? (
+                                        <select name={f} value={profile[f] || ""} onChange={handleProfileChange} className={ic(f)}>
+                                            <option value="">-- Select --</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    ) : f === "dateOfBirth" ? (
+                                        <input type="date" name={f} value={profile[f] || ""} onChange={handleProfileChange} className={`${ic(f)} [color-scheme:light]`} />
+                                    ) : (
+                                        <input type={f === "phoneNumber" ? "tel" : "text"} name={f} value={profile[f] || ""} onChange={handleProfileChange} className={ic(f)} />
+                                    )}
                                     {errors[f] && <p className="mt-1 text-xs text-red-600">{errors[f]}</p>}
                                 </div>
                             ))}
                             <div className="flex gap-3 pt-2">
                                 <button type="submit" disabled={loading} className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold text-sm flex items-center gap-2 cursor-pointer">
-                                    {loading ? <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> : <><Save className="w-4 h-4" /> Save</>}
+                                    {loading ? <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> : <><Save className="w-4 h-4" /> Save Changes</>}
                                 </button>
-                                <button type="button" onClick={() => { setEditMode(false); setErrors({}); }} className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium cursor-pointer">Cancel</button>
+                                <button type="button" onClick={() => { setProfile({ ...profileSnapshot }); setEditMode(false); setErrors({}); }} className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium cursor-pointer">Cancel</button>
                             </div>
                         </form>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg">
                             {editable.map((f) => (
-                                <div key={f}><p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{labels[f]}</p><p className="text-sm font-semibold text-gray-900 mt-0.5">{profile[f] || "—"}</p></div>
+                                <div key={f}>
+                                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{labels[f]}</p>
+                                    <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                                        {f === "dateOfBirth" ? (profile[f] ? new Date(profile[f]).toLocaleDateString("en-GB") : "—") : profile[f] || "—"}
+                                    </p>
+                                </div>
                             ))}
                         </div>
                     )}

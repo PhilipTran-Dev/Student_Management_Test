@@ -1,21 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import { User, Mail, Phone, Calendar, Lock, Eye, EyeOff, Save } from "lucide-react";
 
-const MOCK_PROFILE = {
-    fullName: "Nguyen Van A",
-    email: "a.nguyen@student.edu.vn",
-    phoneNumber: "+84 912 345 678",
-    dateOfBirth: "2003-05-15",
-    gender: "Male",
-    studentId: "21000001",
-    faculty: "Computer Science & Engineering",
-    major: "Software Engineering",
-    class: "DI21V7A1",
-};
+const API_URL = import.meta.env.VITE_API_URL;
+const headers = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
 export default function ProfilePage() {
-    const [activeTab, setActiveTab] = useState("profile"); // "profile" | "password"
-    const [profile, setProfile] = useState({ ...MOCK_PROFILE });
+    const [activeTab, setActiveTab] = useState("profile");
+    const [profile, setProfile] = useState(null);
+    const [profileSnapshot, setProfileSnapshot] = useState(null);
+    const [loadingProfile, setLoadingProfile] = useState(true);
     const [editMode, setEditMode] = useState(false);
     const [passwordForm, setPasswordForm] = useState({
         currentPassword: "",
@@ -28,7 +22,23 @@ export default function ProfilePage() {
     const [successMsg, setSuccessMsg] = useState("");
     const [loading, setLoading] = useState(false);
 
-    // Profile update
+    // Fetch profile on mount
+    useEffect(() => {
+        (async () => {
+            setLoadingProfile(true);
+            try {
+                const res = await axios.get(`${API_URL}/api/v1/student/profile`, { headers: headers() });
+                setProfile(res.data);
+                setProfileSnapshot(res.data);
+            } catch (err) {
+                setServerError(err.response?.data?.message || "Failed to load profile.");
+            } finally {
+                setLoadingProfile(false);
+            }
+        })();
+    }, []);
+
+    // Editable fields mapping to backend keys
     const editableFields = ["fullName", "phoneNumber", "dateOfBirth", "gender"];
     const fieldLabels = { fullName: "Full Name", phoneNumber: "Phone Number", dateOfBirth: "Date of Birth", gender: "Gender" };
 
@@ -40,8 +50,8 @@ export default function ProfilePage() {
 
     const validateProfile = () => {
         const newErrors = {};
-        if (!profile.fullName.trim()) newErrors.fullName = "Full name is required";
-        if (!profile.phoneNumber.trim()) newErrors.phoneNumber = "Phone number is required";
+        if (!profile.fullName?.trim()) newErrors.fullName = "Full name is required";
+        if (!profile.phoneNumber?.trim()) newErrors.phoneNumber = "Phone number is required";
         if (!profile.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
         if (!profile.gender) newErrors.gender = "Gender is required";
         setErrors(newErrors);
@@ -55,8 +65,15 @@ export default function ProfilePage() {
         if (!validateProfile()) return;
         setLoading(true);
         try {
-            // const res = await axios.put("/api/student/profile", profile);
-            await new Promise((r) => setTimeout(r, 1000));
+            const payload = {
+                fullName: profile.fullName,
+                phoneNumber: profile.phoneNumber,
+                dateOfBirth: profile.dateOfBirth,
+                gender: profile.gender,
+            };
+            const res = await axios.put(`${API_URL}/api/v1/student/profile`, payload, { headers: headers() });
+            setProfile(res.data);
+            setProfileSnapshot(res.data);
             setSuccessMsg("Profile updated successfully!");
             setEditMode(false);
         } catch (err) {
@@ -91,8 +108,11 @@ export default function ProfilePage() {
         if (!validatePassword()) return;
         setLoading(true);
         try {
-            // const res = await axios.put("/api/student/profile/password", passwordForm);
-            await new Promise((r) => setTimeout(r, 1000));
+            await axios.put(`${API_URL}/api/v1/student/profile/change-password`, {
+                currentPassword: passwordForm.currentPassword,
+                newPassword: passwordForm.newPassword,
+                confirmPassword: passwordForm.confirmPassword,
+            }, { headers: headers() });
             setSuccessMsg("Password updated successfully!");
             setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
         } catch (err) {
@@ -113,6 +133,29 @@ export default function ProfilePage() {
             ? "border-red-400 ring-2 ring-red-100 bg-red-50"
             : "border-gray-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 bg-white"
         }`;
+
+    if (loadingProfile) {
+        return (
+            <div className="flex items-center justify-center min-h-[300px]">
+                <div className="flex items-center gap-3 text-zinc-400">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="text-sm">Loading profile...</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (!profile) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-zinc-500">Unable to load profile.</p>
+                {serverError && <p className="text-sm text-red-500 mt-2">{serverError}</p>}
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -156,7 +199,7 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Student ID</p>
-                            <p className="text-sm font-semibold text-gray-900 mt-1">{profile.studentId}</p>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{profile.studentId || profile.student_id || "—"}</p>
                         </div>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Email</p>
@@ -164,15 +207,15 @@ export default function ProfilePage() {
                         </div>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Class</p>
-                            <p className="text-sm font-semibold text-gray-900 mt-1">{profile.class}</p>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{profile.className || profile.class_name || "—"}</p>
                         </div>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Faculty</p>
-                            <p className="text-sm font-semibold text-gray-900 mt-1">{profile.faculty}</p>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{profile.faculty || "—"}</p>
                         </div>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Major</p>
-                            <p className="text-sm font-semibold text-gray-900 mt-1">{profile.major}</p>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{profile.major || "—"}</p>
                         </div>
                     </div>
 
@@ -203,8 +246,8 @@ export default function ProfilePage() {
                                                     <label
                                                         key={g}
                                                         className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm cursor-pointer transition-colors ${profile.gender === g
-                                                                ? "border-indigo-400 bg-indigo-50 text-indigo-700"
-                                                                : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"
+                                                            ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                                                            : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"
                                                             } ${errors.gender ? "border-red-400 ring-2 ring-red-100" : ""}`}
                                                     >
                                                         <input
@@ -223,7 +266,7 @@ export default function ProfilePage() {
                                             <input
                                                 type="date"
                                                 name={field}
-                                                value={profile[field]}
+                                                value={profile[field] || ""}
                                                 onChange={handleProfileChange}
                                                 className={`${inputClass(field)} [color-scheme:light]`}
                                             />
@@ -231,7 +274,7 @@ export default function ProfilePage() {
                                             <input
                                                 type={field === "phoneNumber" ? "tel" : "text"}
                                                 name={field}
-                                                value={profile[field]}
+                                                value={profile[field] || ""}
                                                 onChange={handleProfileChange}
                                                 className={inputClass(field)}
                                             />
@@ -257,7 +300,7 @@ export default function ProfilePage() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => { setEditMode(false); setProfile({ ...MOCK_PROFILE }); setErrors({}); }}
+                                    onClick={() => { setProfile({ ...profileSnapshot }); setEditMode(false); setErrors({}); }}
                                     className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors cursor-pointer"
                                 >
                                     Cancel
@@ -271,7 +314,7 @@ export default function ProfilePage() {
                                     <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{fieldLabels[field]}</p>
                                     <p className="text-sm font-semibold text-gray-900 mt-0.5">
                                         {field === "dateOfBirth"
-                                            ? new Date(profile[field]).toLocaleDateString("en-GB")
+                                            ? profile[field] ? new Date(profile[field]).toLocaleDateString("en-GB") : "—"
                                             : profile[field] || "—"}
                                     </p>
                                 </div>

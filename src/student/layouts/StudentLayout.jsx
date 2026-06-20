@@ -7,10 +7,10 @@ export default function StudentLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const handleSignOut = () => {
-        // Placeholder: bind to backend auth logout
-        // e.g., await axios.post("/api/auth/logout");
-        console.log("Signing out...");
-        window.location.href = "/login";
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+        window.location.href = "/student/login";
     };
 
     return (

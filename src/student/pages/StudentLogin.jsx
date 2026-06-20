@@ -8,7 +8,6 @@ export default function StudentLogin() {
     const [formData, setFormData] = useState({
         email: "",
         password: "",
-        rememberMe: false,
     });
     const [showPassword, setShowPassword] = useState(false);
     const [errors, setErrors] = useState({});
@@ -79,11 +78,8 @@ export default function StudentLogin() {
     };
 
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: type === "checkbox" ? checked : value,
-        }));
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) {
             setErrors((prev) => ({ ...prev, [name]: "" }));
         }
@@ -146,14 +142,9 @@ export default function StudentLogin() {
                             {errors.password && <p className="mt-1.5 text-xs text-red-600">{errors.password}</p>}
                         </div>
 
-                        {/* Remember Me & Forgot Password */}
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <input type="checkbox" name="rememberMe" checked={formData.rememberMe} onChange={handleChange}
-                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
-                                <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors">Remember me</span>
-                            </label>
-                            <Link to="/forgot-password" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors">Forgot password?</Link>
+                        {/* Forgot Password */}
+                        <div className="flex justify-end">
+                            <Link to="/student/forgotpassword" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors">Forgot password?</Link>
                         </div>
 
                         {/* Submit */}

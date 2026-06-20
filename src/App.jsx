@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import StudentLayout from "./student/layouts/StudentLayout";
 import StudentLogin from "./student/pages/StudentLogin";
+import StudentForgotPassword from "./student/pages/StudentForgotPassword";
+import StudentVerifyOtp from "./student/pages/StudentVerifyOtp";
 import StudentDashboardPage from "./student/pages/DashboardPage";
 import Register from "./pages/Register";
 import StudentProfilePage from "./student/pages/ProfilePage";
@@ -36,6 +38,8 @@ function App() {
         <Route path="/teacher/login" element={<TeacherLogin />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/student/register" element={<Register />} />
+        <Route path="/student/forgotpassword" element={<StudentForgotPassword />} />
+        <Route path="/student/verifyotp" element={<StudentVerifyOtp />} />
 
         {/* Student routes */}
         <Route path="/student" element={<StudentLayout />}>
@@ -52,6 +56,7 @@ function App() {
         {/* Teacher routes */}
         <Route path="/teacher" element={<TeacherLayout />}>
           <Route index element={<TeacherClassListPage />} />
+          <Route path="dashboard" element={<TeacherClassListPage />} />
           <Route path="classes" element={<TeacherClassListPage />} />
           <Route path="classes/:classId" element={<TeacherClassDetailPage />} />
           <Route path="assignments" element={<TeacherAssignmentListPage />} />
@@ -64,6 +69,7 @@ function App() {
         {/* Admin routes */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminUserManagementPage />} />
+          <Route path="dashboard" element={<AdminUserManagementPage />} />
           <Route path="users" element={<AdminUserManagementPage />} />
           <Route path="faculties" element={<AdminFacultyManagementPage />} />
           <Route path="courses" element={<AdminCourseManagementPage />} />

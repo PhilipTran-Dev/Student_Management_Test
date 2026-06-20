@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { Mail, ArrowLeft } from "lucide-react";
 
 export default function StudentForgotPassword() {
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
     const [loading, setLoading] = useState(false);
 
     const validateEmail = (value) => {
@@ -23,20 +23,25 @@ export default function StudentForgotPassword() {
         if (e) e.preventDefault();
         const validationError = validateEmail(email);
         setError(validationError);
-        setSuccess("");
         if (validationError) return;
 
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            await axios.post(
+                `${import.meta.env.VITE_API_URL}/api/v1/auth/student/forgot-password`,
+                { email }
+            );
             navigate("/student/verifyotp", { state: { email } });
-        }, 1600);
+        } catch (err) {
+            setError(err.response?.data?.message || "Unable to send reset instructions. Please try again.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleChange = (e) => {
         setEmail(e.target.value);
         if (error) setError("");
-        if (success) setSuccess("");
     };
 
     return (
@@ -48,14 +53,14 @@ export default function StudentForgotPassword() {
                     </div>
                     <h1 className="text-3xl font-bold text-gray-900">Forgot Password</h1>
                     <p className="mt-2 text-gray-500">
-                        Enter your student email and we’ll send you instructions to reset your password.
+                        Enter your student email and we’ll send you a verification code.
                     </p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-xl shadow-indigo-100/50 border border-gray-100 p-8">
-                    {success ? (
-                        <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-                            {success}
+                    {error ? (
+                        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                            {error}
                         </div>
                     ) : null}
 
@@ -77,7 +82,6 @@ export default function StudentForgotPassword() {
                                     className={`w-full pl-10 pr-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${error ? "border-red-400 ring-2 ring-red-100 bg-red-50" : "border-gray-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 bg-white"}`}
                                 />
                             </div>
-                            {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
                         </div>
 
                         <button
@@ -91,7 +95,7 @@ export default function StudentForgotPassword() {
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
                             ) : (
-                                "Send reset link"
+                                "Send verification code"
                             )}
                         </button>
                     </form>

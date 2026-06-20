@@ -1,19 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, Link } from "react-router-dom";
-import { ShieldCheck, Key } from "lucide-react";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import axios from "axios";
+import { ShieldCheck } from "lucide-react";
 
 export default function StudentVerifyOtp() {
     const location = useLocation();
-    const email = location.state?.email ?? "your email";
+    const navigate = useNavigate();
+    const email = location.state?.email;
     const [otp, setOtp] = useState(new Array(6).fill(""));
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState("");
+    const [message, setMessage] = useState("");
     const inputsRef = useRef([]);
 
     useEffect(() => {
+        if (!email) {
+            navigate("/student/forgot-password", { replace: true });
+            return;
+        }
         inputsRef.current[0]?.focus();
-    }, []);
+    }, [email, navigate]);
 
     const handleChange = (index, value) => {
         if (!/^[0-9]?$/.test(value)) return;
@@ -55,19 +61,54 @@ export default function StudentVerifyOtp() {
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
         setError("");
-        setSuccess("");
+        setMessage("");
 
         const code = otp.join("");
         if (code.length < 6) {
             setError("Please enter the full 6-digit code.");
             return;
         }
+        if (!email) {
+            navigate("/student/forgot-password", { replace: true });
+            return;
+        }
 
         setLoading(true);
-        setTimeout(() => {
+        try {
+            const response = await axios.post(
+                `${import.meta.env.VITE_API_URL}/api/v1/auth/student/verify-otp`,
+                { email, otp: code }
+            );
+
+            const resetToken = response.data?.resetToken;
+            if (!resetToken) {
+                throw new Error("Missing reset token from server response.");
+            }
+
+            navigate("/student/reset-password", {
+                state: { email, resetToken },
+            });
+        } catch (err) {
+            setError(err.response?.data?.message || "Unable to verify OTP. Please try again.");
+        } finally {
             setLoading(false);
-            setSuccess("OTP verified successfully. You may now reset your password.");
-        }, 1600);
+        }
+    };
+
+    const handleResend = async () => {
+        if (!email) return;
+        setError("");
+        setMessage("");
+        setLoading(true);
+
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/v1/auth/student/forgot-password`, { email });
+            setMessage("A new code has been sent to your email.");
+        } catch (err) {
+            setError(err.response?.data?.message || "Unable to resend code. Please try again.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -79,7 +120,7 @@ export default function StudentVerifyOtp() {
                     </div>
                     <h1 className="text-3xl font-bold text-gray-900">Verify Your Code</h1>
                     <p className="mt-2 text-gray-500">
-                        Enter the 6-digit code sent to {email} to continue resetting your password.
+                        Enter the 6-digit code sent to <span className="font-medium text-indigo-700">{email}</span>.
                     </p>
                 </div>
 
@@ -90,9 +131,9 @@ export default function StudentVerifyOtp() {
                         </div>
                     ) : null}
 
-                    {success ? (
+                    {message ? (
                         <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-                            {success}
+                            {message}
                         </div>
                     ) : null}
 
@@ -127,7 +168,7 @@ export default function StudentVerifyOtp() {
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
                             ) : (
-                                "Verifying..."
+                                "Verify code"
                             )}
                         </button>
                     </form>
@@ -139,11 +180,9 @@ export default function StudentVerifyOtp() {
                             </Link>
                             <button
                                 type="button"
-                                className="font-medium text-indigo-600 hover:text-indigo-700"
-                                onClick={() => {
-                                    setError("");
-                                    setSuccess("A new code has been requested and sent to your email.");
-                                }}
+                                onClick={handleResend}
+                                disabled={loading}
+                                className="font-medium text-indigo-600 hover:text-indigo-700 disabled:text-indigo-300"
                             >
                                 Resend code
                             </button>

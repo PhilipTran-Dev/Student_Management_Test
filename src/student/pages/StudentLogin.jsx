@@ -144,7 +144,7 @@ export default function StudentLogin() {
 
                         {/* Forgot Password */}
                         <div className="flex justify-end">
-                            <Link to="/student/forgotpassword" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors">Forgot password?</Link>
+                            <Link to="/student/forgot-password" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors">Forgot password?</Link>
                         </div>
 
                         {/* Submit */}

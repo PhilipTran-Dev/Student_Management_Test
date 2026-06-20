@@ -3,6 +3,7 @@ import StudentLayout from "./student/layouts/StudentLayout";
 import StudentLogin from "./student/pages/StudentLogin";
 import StudentForgotPassword from "./student/pages/StudentForgotPassword";
 import StudentVerifyOtp from "./student/pages/StudentVerifyOtp";
+import StudentResetPassword from "./student/pages/StudentResetPassword";
 import StudentDashboardPage from "./student/pages/DashboardPage";
 import Register from "./pages/Register";
 import StudentProfilePage from "./student/pages/ProfilePage";
@@ -38,8 +39,9 @@ function App() {
         <Route path="/teacher/login" element={<TeacherLogin />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/student/register" element={<Register />} />
-        <Route path="/student/forgotpassword" element={<StudentForgotPassword />} />
+        <Route path="/student/forgot-password" element={<StudentForgotPassword />} />
         <Route path="/student/verifyotp" element={<StudentVerifyOtp />} />
+        <Route path="/student/reset-password" element={<StudentResetPassword />} />
 
         {/* Student routes */}
         <Route path="/student" element={<StudentLayout />}>

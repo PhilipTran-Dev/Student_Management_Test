@@ -18,7 +18,6 @@ const FACULTY_LIST = Object.keys(FACULTY_MAJOR_MAP);
 const DEFAULT_FORM = {
     email: "",
     fullName: "",
-    password: "",
     role: "student",
     status: "active",
     studentId: "",
@@ -49,7 +48,6 @@ function UserFormModal({ isOpen, mode = "create", userToEdit = null, onClose = (
             setFormData({
                 email: userToEdit.email || "",
                 fullName: userToEdit.full_name || userToEdit.fullName || "",
-                password: "",
                 role: userToEdit.role?.toLowerCase() === "teacher" ? "teacher" : (userToEdit.role?.toLowerCase() === "admin" ? "admin" : "student"),
                 status: userToEdit.status?.toLowerCase() || "active",
                 studentId: userToEdit.student_id || userToEdit.studentId || "",
@@ -96,43 +94,44 @@ function UserFormModal({ isOpen, mode = "create", userToEdit = null, onClose = (
             setError("Invalid email format");
             return false;
         }
-        if (mode === "create" && formData.password.trim().length < 6) {
-            setError("Password must be at least 6 characters");
-            return false;
-        }
-        if (mode === "edit" && formData.password.trim() && formData.password.trim().length < 6) {
+        if (mode === "create" && formData.password?.trim().length < 6) {
             setError("Password must be at least 6 characters");
             return false;
         }
         return true;
     };
 
+    // Convert empty/whitespace-only string to null (back-end enums reject "" for @NotNull fields)
+    const toNullIfEmpty = (value) => (typeof value === "string" && value.trim() === "" ? null : value);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
         if (!validate()) return;
 
-        // Build snake_case payload aligned with backend DTO rules
+        // Build snake_case payload aligned with back-end DTO rules
         const normalizedRole = formData.role.toUpperCase();
+        const isTeacher = normalizedRole === "TEACHER";
+        const isStudent = normalizedRole === "STUDENT";
+
         const payload = {
             email: formData.email,
             full_name: formData.fullName,
             role: normalizedRole,
-            status: formData.status,
-            date_of_birth: formData.dateOfBirth,
-            gender: formData.gender,
-            phone_number: formData.phoneNumber,
-            faculty: formData.faculty,
-            major: normalizedRole === 'STUDENT' ? formData.major : null,
-            class_name: normalizedRole === 'STUDENT' ? formData.className : null,
-            student_id: normalizedRole === 'STUDENT' ? formData.studentId : null,
-            teacher_id: normalizedRole === 'TEACHER' ? formData.teacherId : null,
-            password: formData.password || null,
+            status: formData.status?.toUpperCase(), // Back-end enum UserStatus expects ACTIVE / LOCKED
+            date_of_birth: toNullIfEmpty(formData.dateOfBirth),
+            gender: toNullIfEmpty(formData.gender),
+            phone_number: toNullIfEmpty(formData.phoneNumber),
+            faculty: toNullIfEmpty(formData.faculty),
+            major: isStudent ? toNullIfEmpty(formData.major) : null,
+            class_name: isStudent ? toNullIfEmpty(formData.className) : null,
+            student_id: isStudent ? toNullIfEmpty(formData.studentId) : null,
+            teacher_id: isTeacher ? toNullIfEmpty(formData.teacherId) : null,
         };
 
-        // Remove password from payload if empty (keeping existing password in edit mode)
-        if (!payload.password) {
-            delete payload.password;
+        // Only include password for create mode; in edit mode the separate reset-password endpoint is used
+        if (mode === "create") {
+            payload.password = formData.password;
         }
 
         setLoading(true);
@@ -186,17 +185,19 @@ function UserFormModal({ isOpen, mode = "create", userToEdit = null, onClose = (
                                 className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none transition-all duration-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                             />
                         </div>
-                        <div>
-                            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1.5 block">Password</label>
-                            <input
-                                name="password"
-                                type="password"
-                                value={formData.password}
-                                onChange={handleChange}
-                                placeholder={mode === "edit" ? "Leave blank to keep current password" : "Min. 6 characters"}
-                                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none transition-all duration-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-                            />
-                        </div>
+                        {mode === "create" && (
+                            <div>
+                                <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1.5 block">Password</label>
+                                <input
+                                    name="password"
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    placeholder="Min. 6 characters"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-sm outline-none transition-all duration-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div>

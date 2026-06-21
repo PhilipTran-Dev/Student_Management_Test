@@ -12,6 +12,8 @@ export default function UserManagementPage() {
     const [users, setUsers] = useState([]);
     const [filter, setFilter] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
+    const [selectedMajor, setSelectedMajor] = useState("");
+    const [selectedClass, setSelectedClass] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState("create");
     const [selectedUser, setSelectedUser] = useState(null);
@@ -25,11 +27,18 @@ export default function UserManagementPage() {
         setTimeout(() => setToast({ message: "", type: "" }), 3000);
     };
 
+    // ---------- Derive unique majors & classes from dataset ----------
+    const uniqueMajors = [...new Set(users.map((u) => u.major).filter(Boolean))].sort();
+    const uniqueClasses = Array.from(new Set(users.map((u) => u.className || u.class_name).filter(Boolean))).sort();
+
     // ---------- Build query url based on filter ----------
     const buildUrl = () => {
         const url = new URL(`${API.baseURL}/admin/users`);
         if (filter === "student") url.searchParams.set("role", "STUDENT");
         if (filter === "teacher") url.searchParams.set("role", "TEACHER");
+        if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
+        if (selectedMajor) url.searchParams.set("major", selectedMajor);
+        if (selectedClass) url.searchParams.set("className", selectedClass);
         return url.toString();
     };
 
@@ -49,12 +58,9 @@ export default function UserManagementPage() {
 
     useEffect(() => {
         fetchUsers();
-    }, [filter]);
+    }, [filter, searchTerm, selectedMajor, selectedClass]);
 
-    const filtered = users.filter((u) =>
-        u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = users;
 
     // ---------- Create ----------
     const openCreateModal = () => {
@@ -247,7 +253,7 @@ export default function UserManagementPage() {
                 </button>
             </div>
 
-            {/* Quick Filters + Search */}
+            {/* Quick Filters + Search + Dropdowns */}
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 <div className="flex gap-1 p-1 bg-zinc-100/80 rounded-xl w-fit">
                     {[
@@ -275,6 +281,26 @@ export default function UserManagementPage() {
                         className="w-full pl-9 pr-4 py-2 rounded-xl border border-zinc-200 text-sm outline-none transition-all duration-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 placeholder:text-zinc-300"
                     />
                 </div>
+                <select
+                    value={selectedMajor}
+                    onChange={(e) => setSelectedMajor(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-zinc-200 text-sm outline-none transition-all duration-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 bg-white min-w-[140px]"
+                >
+                    <option value="">All Majors</option>
+                    {uniqueMajors.map((major) => (
+                        <option key={major} value={major}>{major}</option>
+                    ))}
+                </select>
+                <select
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-zinc-200 text-sm outline-none transition-all duration-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 bg-white min-w-[140px]"
+                >
+                    <option value="">All Classes</option>
+                    {uniqueClasses.map((cls) => (
+                        <option key={cls} value={cls}>{cls}</option>
+                    ))}
+                </select>
             </div>
 
             {/* Table */}
@@ -325,11 +351,9 @@ export default function UserManagementPage() {
                                             )}
                                         </td>
                                         <td className="px-5 py-4 text-center">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium ${u.status === "active" ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500"
+                                            <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${u.status?.toUpperCase() === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
                                                 }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${u.status === "active" ? "bg-emerald-500" : "bg-zinc-400"
-                                                    }`} />
-                                                {u.status === "active" ? "Active" : "Locked"}
+                                                {u.status?.toUpperCase() === "ACTIVE" ? "Active" : "Locked"}
                                             </span>
                                         </td>
                                         <td className="px-5 py-4 text-center text-xs text-zinc-400">{formatDate(u.created_at || u.createdAt)}</td>

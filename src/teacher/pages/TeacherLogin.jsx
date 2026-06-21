@@ -66,12 +66,13 @@ export default function TeacherLogin() {
                 navigate("/");
             }
         } catch (err) {
+            const errorMsg = err.response?.data?.message || "Login failed";
             if (err.code === "ERR_NETWORK") {
                 setServerError("Backend authentication server is offline. Please check port 8081.");
-            } else if (err.response?.data?.message) {
-                setServerError(err.response.data.message);
+            } else if (errorMsg === "This account have been locked") {
+                setServerError("This account have been locked");
             } else {
-                setServerError("Invalid credentials. Please try again.");
+                setServerError(errorMsg);
             }
         } finally {
             setLoading(false);
@@ -104,8 +105,18 @@ export default function TeacherLogin() {
                 {/* Card */}
                 <div className="bg-white rounded-2xl shadow-xl shadow-amber-100/50 border border-gray-100 p-8">
                     {serverError && (
-                        <div className="mb-6 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm text-center">
-                            {serverError}
+                        <div className={`mb-6 p-3 rounded-lg text-sm text-center ${serverError === "This account have been locked"
+                            ? "bg-orange-50 border border-orange-200 text-orange-700 font-semibold"
+                            : "bg-red-50 border border-red-200 text-red-700"
+                            }`}>
+                            {serverError === "This account have been locked" ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <Lock className="w-4 h-4" />
+                                    {serverError}
+                                </span>
+                            ) : (
+                                serverError
+                            )}
                         </div>
                     )}
 

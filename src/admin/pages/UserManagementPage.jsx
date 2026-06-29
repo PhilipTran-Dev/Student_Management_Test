@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { Plus, X, Trash2, Lock, Unlock, Key, Search, MoreHorizontal, Pencil } from "lucide-react";
 import UserFormModal from "../components/UserFormModal";
+import Avatar from "../components/Avatar";
 
 const API = {
     baseURL: `${import.meta.env.VITE_API_URL}/api/v1`,
@@ -324,12 +325,11 @@ export default function UserManagementPage() {
                                     <tr key={u.id} className={`group transition-all duration-150 hover:bg-zinc-50/80 ${idx < filtered.length - 1 ? "border-b border-zinc-50" : ""}`}>
                                         <td className="px-5 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-semibold ${u.role?.toLowerCase() === "teacher"
-                                                    ? "bg-emerald-50 text-emerald-600"
-                                                    : "bg-indigo-50 text-indigo-600"
-                                                    }`}>
-                                                    {u.full_name?.split(" ").pop()[0] || "?"}
-                                                </div>
+                                                <Avatar
+                                                    name={u.full_name || u.fullName}
+                                                    src={u.avatar_url || u.avatarUrl}
+                                                    className="shrink-0"
+                                                />
                                                 <div>
                                                     <p className="text-sm font-medium text-zinc-900">{u.full_name}</p>
                                                     <p className="text-xs text-zinc-400">{u.email}</p>

@@ -1,98 +1,190 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
-    ArrowLeft, Bell, Users, FileText, Download, Megaphone, User, Calendar,
-    BookOpen, Clock, MapPin, UserCheck, GraduationCap, ExternalLink, FileType,
-    DownloadCloud, Bot
+    ArrowLeft, Megaphone, Users, FileText, Download, Loader2, AlertTriangle, CheckCircle,
+    Calendar, User, LogOut, ExternalLink, BookOpen, Clock, MapPin, GraduationCap, UserCheck,
+    Bell, MessageSquare
 } from "lucide-react";
-
-const MOCK_CLASS = {
-    id: "CS101",
-    name: "Introduction to Programming",
-    code: "CS101-2026-S1",
-    instructor: "Dr. Tran Van B",
-    semester: "Spring 2026",
-    description: "This course provides a comprehensive introduction to programming concepts using Python. Topics include variables, data types, control structures, functions, data structures, and basic algorithms. No prior programming experience is required.",
-    schedules: [
-        { day: "Monday", time: "09:00 - 10:30", room: "Hall A - 201" },
-        { day: "Wednesday", time: "09:00 - 10:30", room: "Lab B - 105" },
-        { day: "Friday", time: "14:00 - 15:00", room: "Hall A - 201" },
-    ],
-    instructors: [
-        { id: "T001", name: "Dr. Tran Van B", email: "tvb@university.edu.vn", specialty: "Computer Science" },
-        { id: "T002", name: "Prof. Le Thi C", email: "ltc@university.edu.vn", specialty: "Programming Languages" },
-    ],
-    classmates: [
-        { id: "S001", name: "Nguyen Van A", email: "a.nguyen@student.edu.vn" },
-        { id: "S002", name: "Tran Thi B", email: "b.tran@student.edu.vn" },
-        { id: "S003", name: "Le Van C", email: "c.le@student.edu.vn" },
-        { id: "S004", name: "Pham Thi D", email: "d.pham@student.edu.vn" },
-        { id: "S005", name: "Hoang Van E", email: "e.hoang@student.edu.vn" },
-        { id: "S006", name: "Nguyen Thi F", email: "f.nguyen@student.edu.vn" },
-        { id: "S007", name: "Tran Van G", email: "g.tran@student.edu.vn" },
-    ],
-};
-
-const MOCK_ANNOUNCEMENTS = [
-    { id: 1, title: "Welcome to the course!", content: "Please review the syllabus and course materials before our first session. All lecture slides are available in the Course Materials tab.", author: "Dr. Tran Van B", date: "2026-01-10", pinned: true },
-    { id: 2, title: "Midterm Exam Schedule", content: "The midterm exam will be held on March 15th at 9:00 AM in Hall B. Bring your student ID. The exam covers chapters 1-6.", author: "Dr. Tran Van B", date: "2026-02-20", pinned: false },
-    { id: 3, title: "Office Hours Update", content: "Office hours have been changed to Wednesdays 2-4 PM in Room 305. Please sign up via the link posted in the announcements.", author: "Dr. Tran Van B", date: "2026-03-01", pinned: false },
-    { id: 4, title: "Assignment 2 Released", content: "Assignment 2 is now available. It covers loops and functions. Due date: March 10th at 11:59 PM. Submit via the assignment portal.", author: "Prof. Le Thi C", date: "2026-03-05", pinned: true },
-];
-
-const MOCK_MATERIALS = [
-    { id: 1, name: "Syllabus - Introduction to Programming", type: "pdf", size: "1.2 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-10", format: "PDF" },
-    { id: 2, name: "Chapter 1 - Introduction & Setup", type: "pdf", size: "2.4 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-12", format: "PDF" },
-    { id: 3, name: "Chapter 2 - Data Types & Variables", type: "pptx", size: "5.1 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-19", format: "PPTX" },
-    { id: 4, name: "Week 3 - Lecture Notes", type: "pdf", size: "1.8 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-26", format: "PDF" },
-    { id: 5, name: "Assignment 1 - Instructions", type: "pdf", size: "0.9 MB", uploadedBy: "Prof. Le Thi C", date: "2026-02-02", format: "PDF" },
-    { id: 6, name: "Chapter 3 - Control Structures", type: "pptx", size: "4.3 MB", uploadedBy: "Dr. Tran Van B", date: "2026-02-09", format: "PPTX" },
-    { id: 7, name: "External: Python Official Docs", type: "link", url: "https://docs.python.org/3/", uploadedBy: "Dr. Tran Van B", date: "2026-01-10", format: "Link" },
-];
+import classApi from "../../services/classApi";
 
 const TABS = [
     { key: "overview", label: "Overview", icon: BookOpen },
-    { key: "members", label: "Class Members", icon: Users },
     { key: "announcements", label: "Announcements", icon: Megaphone },
-    { key: "materials", label: "Course Materials", icon: FileText },
+    { key: "members", label: "Class Members", icon: Users },
+    { key: "documents", label: "Documents", icon: FileText },
 ];
 
 const TYPE_ICONS = {
-    pdf: { bg: "bg-red-50", text: "text-red-600", icon: FileType },
-    pptx: { bg: "bg-orange-50", text: "text-orange-600", icon: FileType },
+    pdf: { bg: "bg-red-50", text: "text-red-600", icon: FileText },
+    pptx: { bg: "bg-orange-50", text: "text-orange-600", icon: FileText },
+    docx: { bg: "bg-blue-50", text: "text-blue-600", icon: FileText },
+    xlsx: { bg: "bg-green-50", text: "text-green-600", icon: FileText },
+    image: { bg: "bg-purple-50", text: "text-purple-600", icon: FileText },
+    video: { bg: "bg-pink-50", text: "text-pink-600", icon: FileText },
+    file: { bg: "bg-gray-50", text: "text-gray-600", icon: FileText },
     link: { bg: "bg-blue-50", text: "text-blue-600", icon: ExternalLink },
+};
+
+const getFileIconType = (name) => {
+    const ext = name?.split(".").pop()?.toLowerCase();
+    if (["pdf"].includes(ext)) return "pdf";
+    if (["pptx", "ppt"].includes(ext)) return "pptx";
+    if (["docx", "doc"].includes(ext)) return "docx";
+    if (["xlsx", "xls"].includes(ext)) return "xlsx";
+    if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) return "image";
+    if (["mp4", "mov", "avi", "mkv"].includes(ext)) return "video";
+    return "file";
+};
+
+const getTypeStyle = (name) => {
+    const type = getFileIconType(name);
+    return TYPE_ICONS[type] || TYPE_ICONS.file;
 };
 
 export default function ClassDetailPage() {
     const { classId } = useParams();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState("overview");
+    const [classInfo, setClassInfo] = useState(null);
+    const [announcements, setAnnouncements] = useState([]);
+    const [students, setStudents] = useState([]);
+    const [documents, setDocuments] = useState([]);
     const [downloadStates, setDownloadStates] = useState({});
+    const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+    const [leaveLoading, setLeaveLoading] = useState(false);
+    const [toast, setToast] = useState(null);
 
-    const handleDownload = (materialId) => {
-        setDownloadStates((prev) => ({ ...prev, [materialId]: true }));
-        // Simulate download
-        setTimeout(() => {
-            setDownloadStates((prev) => ({ ...prev, [materialId]: false }));
-            // In production: use axios to fetch blob, then trigger download
-            // const res = await axios.get(`/api/student/classes/${classId}/materials/${materialId}/download`, { responseType: 'blob' });
-            // const url = window.URL.createObjectURL(new Blob([res.data]));
-            // const link = document.createElement('a'); link.href = url; link.download = material.name; link.click();
-        }, 1500);
+    const showToast = (message, type = "success") => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 4000);
+    };
+
+    useEffect(() => {
+        if (classId) {
+            fetchAllData();
+        }
+    }, [classId]);
+
+    const fetchAllData = async () => {
+        setLoading(true);
+        setError("");
+        try {
+            const [classRes, announcementRes, studentsRes, documentsRes] = await Promise.all([
+                classApi.get(`/api/v1/classes/${classId}`),
+                classApi.get(`/api/v1/classes/${classId}/announcements`),
+                classApi.get(`/api/v1/classes/${classId}/students`),
+                classApi.get(`/api/v1/classes/${classId}/documents`),
+            ]);
+            setClassInfo(classRes.data || {});
+            setAnnouncements(announcementRes.data || []);
+            setStudents(studentsRes.data || []);
+            setDocuments(documentsRes.data || []);
+        } catch (err) {
+            setError(err.response?.data?.message || "Failed to load class details. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDownload = async (doc) => {
+        const docId = doc.id || doc.documentId;
+        setDownloadStates((prev) => ({ ...prev, [docId]: true }));
+        try {
+            const res = await classApi.get(`/api/v1/classes/${classId}/documents/${docId}/download`, {
+                responseType: "blob",
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = doc.fileName || doc.name || "document";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch {
+            showToast("Failed to download document", "error");
+        } finally {
+            setDownloadStates((prev) => ({ ...prev, [docId]: false }));
+        }
+    };
+
+    const handleLeaveClass = async () => {
+        setLeaveLoading(true);
+        try {
+            await classApi.delete(`/api/v1/classes/${classId}/leave`);
+            showToast("You have left the class");
+            setTimeout(() => {
+                window.location.href = "/student/classes";
+            }, 1000);
+        } catch (err) {
+            showToast(err.response?.data?.message || "Failed to leave class", "error");
+        } finally {
+            setLeaveLoading(false);
+        }
     };
 
     const getInitials = (name) => {
-        return name.split(" ").pop()[0];
+        return name?.split(" ").pop()[0] || "?";
     };
 
-    const cls = MOCK_CLASS;
+    // Loading state
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                    <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mx-auto mb-3" />
+                    <p className="text-sm text-gray-500">Loading class details...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="text-center py-20">
+                <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+                <p className="text-sm font-medium text-red-500">{error}</p>
+                <Link to="/student/classes" className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm cursor-pointer">
+                    Back to Classes
+                </Link>
+            </div>
+        );
+    }
+
+    const cls = classInfo || {};
+    const className = cls.name || cls.className || classId;
+    const classCode = cls.code || cls.classCode || "";
+    const instructor = cls.instructor || cls.teacherName || "";
+    const semester = cls.semester || cls.semesterId || "";
+    const studentCount = cls.studentCount || cls.students || students.length || 0;
+    const description = cls.description || "";
 
     return (
         <div>
-            {/* Back link */}
-            <Link to="/student/classes" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-                Back to classes
-            </Link>
+            {/* Toast notification */}
+            {toast && (
+                <div className={`fixed top-4 right-4 z-[100] px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 transition-all ${toast.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+                    {toast.type === "success" ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-red-500" />}
+                    {toast.message}
+                </div>
+            )}
+
+            {/* Back link & Leave button */}
+            <div className="flex items-center justify-between mb-4">
+                <Link to="/student/classes" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to classes
+                </Link>
+                <button
+                    onClick={() => setShowLeaveConfirm(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-red-600 hover:bg-red-50 border border-red-200 hover:border-red-300 transition-colors cursor-pointer"
+                >
+                    <LogOut className="w-4 h-4" />
+                    Leave Class
+                </button>
+            </div>
 
             {/* Class Header */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -101,12 +193,12 @@ export default function ClassDetailPage() {
                         <BookOpen className="w-7 h-7 text-indigo-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-2xl font-bold text-gray-900">{cls.name}</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">{className}</h1>
                         <p className="text-sm text-gray-500 mt-1">
-                            {cls.code} &middot; {cls.semester} &middot; Instructor: {cls.instructor}
+                            {classCode && `${classCode} · `}{semester && `${semester} · `}Instructor: {instructor || "N/A"}
                         </p>
                         <p className="text-sm text-gray-400 mt-0.5">
-                            {cls.classmates.length + cls.instructors.length} members enrolled
+                            {studentCount} student{studentCount !== 1 ? "s" : ""} enrolled
                         </p>
                     </div>
                 </div>
@@ -136,30 +228,9 @@ export default function ClassDetailPage() {
                             <BookOpen className="w-5 h-5 text-indigo-500" />
                             Course Description
                         </h2>
-                        <p className="text-sm text-gray-600 leading-relaxed">{cls.description}</p>
-                    </div>
-
-                    {/* Class Schedule */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                            <Clock className="w-5 h-5 text-indigo-500" />
-                            Class Schedule
-                        </h2>
-                        <div className="space-y-3">
-                            {cls.schedules.map((schedule, idx) => (
-                                <div key={idx} className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 border border-gray-100">
-                                    <div className="w-20 text-sm font-semibold text-gray-900">{schedule.day}</div>
-                                    <div className="flex-1 text-sm text-gray-600 flex items-center gap-1">
-                                        <Clock className="w-3.5 h-3.5 text-gray-400" />
-                                        {schedule.time}
-                                    </div>
-                                    <div className="text-sm text-gray-500 flex items-center gap-1">
-                                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                                        {schedule.room}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                            {description || "No description provided for this class."}
+                        </p>
                     </div>
 
                     {/* Quick Info Cards */}
@@ -169,8 +240,8 @@ export default function ClassDetailPage() {
                                 <UserCheck className="w-5 h-5 text-indigo-600" />
                             </div>
                             <div>
-                                <p className="text-sm font-semibold text-gray-900">{cls.instructors.length}</p>
-                                <p className="text-xs text-gray-500">Instructors</p>
+                                <p className="text-sm font-semibold text-gray-900">{instructor || "N/A"}</p>
+                                <p className="text-xs text-gray-500">Instructor</p>
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
@@ -178,8 +249,8 @@ export default function ClassDetailPage() {
                                 <Users className="w-5 h-5 text-emerald-600" />
                             </div>
                             <div>
-                                <p className="text-sm font-semibold text-gray-900">{cls.classmates.length}</p>
-                                <p className="text-xs text-gray-500">Classmates</p>
+                                <p className="text-sm font-semibold text-gray-900">{studentCount}</p>
+                                <p className="text-xs text-gray-500">Students</p>
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
@@ -187,7 +258,7 @@ export default function ClassDetailPage() {
                                 <GraduationCap className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
-                                <p className="text-sm font-semibold text-gray-900">{cls.semester}</p>
+                                <p className="text-sm font-semibold text-gray-900">{semester || "N/A"}</p>
                                 <p className="text-xs text-gray-500">Semester</p>
                             </div>
                         </div>
@@ -195,154 +266,199 @@ export default function ClassDetailPage() {
                 </div>
             )}
 
-            {/* ===== Class Members Tab ===== */}
+            {/* ===== Announcements Tab (Read-Only) ===== */}
+            {activeTab === "announcements" && (
+                <div className="space-y-4">
+                    {announcements.length === 0 ? (
+                        <div className="text-center py-16 text-gray-400">
+                            <MessageSquare className="w-12 h-12 mx-auto mb-3" />
+                            <p className="text-sm font-medium">No announcements yet</p>
+                            <p className="text-xs mt-1">Check back later for class updates.</p>
+                        </div>
+                    ) : (
+                        [...announcements]
+                            .sort((a, b) => {
+                                const dateA = new Date(a.createdAt || a.date || 0);
+                                const dateB = new Date(b.createdAt || b.date || 0);
+                                return dateB - dateA;
+                            })
+                            .map((item) => {
+                                const announcementId = item.id || item.announcementId;
+                                const isPinned = item.pinned || false;
+                                const date = item.createdAt || item.date || "";
+                                const author = item.author || item.createdBy || instructor || "Teacher";
+                                return (
+                                    <div
+                                        key={announcementId}
+                                        className={`bg-white rounded-xl border p-5 ${isPinned ? "border-indigo-200 bg-indigo-50/30" : "border-gray-200"}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className={`p-2 rounded-lg ${isPinned ? "bg-indigo-100" : "bg-gray-100"}`}>
+                                                {isPinned ? (
+                                                    <Bell className="w-4 h-4 text-indigo-600" />
+                                                ) : (
+                                                    <Megaphone className="w-4 h-4 text-gray-500" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h3 className="font-semibold text-gray-900 text-sm">{item.title}</h3>
+                                                    {isPinned && (
+                                                        <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-semibold">Pinned</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-gray-600 mt-1.5 whitespace-pre-wrap">{item.content}</p>
+                                                <div className="flex items-center gap-3 mt-3 text-xs text-gray-400">
+                                                    <span className="flex items-center gap-1">
+                                                        <User className="w-3 h-3" />
+                                                        {author}
+                                                    </span>
+                                                    {date && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Calendar className="w-3 h-3" />
+                                                            {new Date(date).toLocaleDateString("en-US", {
+                                                                year: "numeric",
+                                                                month: "short",
+                                                                day: "numeric",
+                                                            })}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                    )}
+                </div>
+            )}
+
+            {/* ===== Members Tab (Read-Only) ===== */}
             {activeTab === "members" && (
                 <div className="space-y-6">
-                    {/* Instructors Section */}
-                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100 bg-amber-50/30">
-                            <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                                <GraduationCap className="w-4 h-4 text-amber-600" />
-                                Instructors ({cls.instructors.length})
-                            </h2>
-                        </div>
-                        <div className="divide-y divide-gray-100">
-                            {cls.instructors.map((inst, idx) => (
-                                <div key={inst.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors">
-                                    <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-sm font-semibold text-amber-700">
-                                        {getInitials(inst.name)}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900">{inst.name}</p>
-                                        <p className="text-xs text-gray-400">{inst.email}</p>
-                                    </div>
-                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700">
-                                        {inst.specialty}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Classmates Section */}
+                    {/* Students Section */}
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100 bg-indigo-50/30">
                             <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                                 <Users className="w-4 h-4 text-indigo-600" />
-                                Classmates / Students ({cls.classmates.length})
+                                Classmates ({students.length})
                             </h2>
                         </div>
-                        <div className="divide-y divide-gray-100">
-                            {cls.classmates.map((student, idx) => (
-                                <div key={student.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors">
-                                    <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-semibold text-indigo-700">
-                                        {getInitials(student.name)}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900">{student.name}</p>
-                                        <p className="text-xs text-gray-400">{student.email}</p>
-                                    </div>
-                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
-                                        Student
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
+                        {students.length === 0 ? (
+                            <div className="px-5 py-10 text-center text-gray-400 text-sm">
+                                <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                No classmates data available.
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {students.map((student, idx) => {
+                                    const studentId = student.id || student.studentId || student.userId || idx;
+                                    const name = student.name || student.fullName || student.username || "Unknown";
+                                    const email = student.email || "";
+                                    return (
+                                        <div key={studentId} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors">
+                                            <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-semibold text-indigo-700">
+                                                {getInitials(name)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900">{name}</p>
+                                                {email && <p className="text-xs text-gray-400">{email}</p>}
+                                            </div>
+                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
+                                                Student
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
 
-            {/* ===== Announcements Tab ===== */}
-            {activeTab === "announcements" && (
-                <div className="space-y-4">
-                    {MOCK_ANNOUNCEMENTS.length === 0 ? (
-                        <div className="text-center py-16 text-gray-400">
-                            <Megaphone className="w-12 h-12 mx-auto mb-3" />
-                            <p className="text-sm font-medium">No announcements yet</p>
-                        </div>
-                    ) : (
-                        MOCK_ANNOUNCEMENTS
-                            .sort((a, b) => new Date(b.date) - new Date(a.date))
-                            .map((item) => (
-                                <div key={item.id} className={`bg-white rounded-xl border p-5 ${item.pinned ? "border-indigo-200 bg-indigo-50/30" : "border-gray-200"}`}>
-                                    <div className="flex items-start gap-3">
-                                        <div className={`p-2 rounded-lg ${item.pinned ? "bg-indigo-100" : "bg-gray-100"}`}>
-                                            {item.pinned ? <Bell className="w-4 h-4 text-indigo-600" /> : <Megaphone className="w-4 h-4 text-gray-500" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <h3 className="font-semibold text-gray-900 text-sm">{item.title}</h3>
-                                                {item.pinned && <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-semibold">Pinned</span>}
-                                            </div>
-                                            <p className="text-sm text-gray-600 mt-1.5">{item.content}</p>
-                                            <div className="flex items-center gap-3 mt-3 text-xs text-gray-400">
-                                                <span className="flex items-center gap-1"><User className="w-3 h-3" />{item.author}</span>
-                                                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(item.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                    )}
-                </div>
-            )}
-
-            {/* ===== Course Materials Tab ===== */}
-            {activeTab === "materials" && (
+            {/* ===== Documents Tab (Read-Only, Download-Only) ===== */}
+            {activeTab === "documents" && (
                 <div className="space-y-3">
-                    {MOCK_MATERIALS.length === 0 ? (
+                    {documents.length === 0 ? (
                         <div className="text-center py-16 text-gray-400">
                             <FileText className="w-12 h-12 mx-auto mb-3" />
-                            <p className="text-sm font-medium">No course materials available</p>
+                            <p className="text-sm font-medium">No documents available</p>
+                            <p className="text-xs mt-1">Course materials will appear here when the instructor uploads them.</p>
                         </div>
                     ) : (
-                        MOCK_MATERIALS.map((mat) => {
-                            const typeStyle = TYPE_ICONS[mat.type] || TYPE_ICONS.pdf;
-                            const isDownloading = downloadStates[mat.id];
+                        documents.map((doc) => {
+                            const docId = doc.id || doc.documentId;
+                            const fileName = doc.fileName || doc.name || doc.title || "Untitled";
+                            const typeStyle = getTypeStyle(fileName);
                             const IconComp = typeStyle.icon;
-
+                            const isDownloading = downloadStates[docId];
+                            const date = doc.createdAt || doc.uploadDate || "";
                             return (
-                                <div key={mat.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:border-gray-300 transition-colors">
+                                <div
+                                    key={docId}
+                                    className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:border-gray-300 transition-colors"
+                                >
                                     <div className={`p-2.5 rounded-lg ${typeStyle.bg}`}>
                                         <IconComp className={`w-5 h-5 ${typeStyle.text}`} />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900 truncate">{mat.name}</p>
+                                        <p className="text-sm font-medium text-gray-900 truncate">{doc.title || fileName}</p>
                                         <p className="text-xs text-gray-400 mt-0.5">
-                                            {mat.format} {mat.size && `· ${mat.size}`} · {mat.date} · {mat.uploadedBy}
+                                            {fileName}
+                                            {date && ` · ${new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}`}
                                         </p>
                                     </div>
-                                    {mat.type === "link" ? (
-                                        <a
-                                            href={mat.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                                            title="Open link"
-                                        >
-                                            <ExternalLink className="w-4 h-4" />
-                                        </a>
-                                    ) : (
-                                        <button
-                                            onClick={() => handleDownload(mat.id)}
-                                            disabled={isDownloading}
-                                            className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                            title="Download"
-                                        >
-                                            {isDownloading ? (
-                                                <svg className="animate-spin h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                </svg>
-                                            ) : (
-                                                <Download className="w-4 h-4" />
-                                            )}
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => handleDownload(doc)}
+                                        disabled={isDownloading}
+                                        className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        title="Download"
+                                    >
+                                        {isDownloading ? (
+                                            <svg className="animate-spin h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                        ) : (
+                                            <Download className="w-4 h-4" />
+                                        )}
+                                    </button>
                                 </div>
                             );
                         })
                     )}
+                </div>
+            )}
+
+            {/* Leave Confirmation Modal */}
+            {showLeaveConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/40" onClick={() => setShowLeaveConfirm(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm z-10 text-center">
+                        <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                            <AlertTriangle className="w-6 h-6 text-red-600" />
+                        </div>
+                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Leave Class?</h2>
+                        <p className="text-sm text-gray-500 mb-6">
+                            Are you sure you want to leave this class? You may need a new code to re-join.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowLeaveConfirm(false)}
+                                className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleLeaveClass}
+                                disabled={leaveLoading}
+                                className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-medium transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+                            >
+                                {leaveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                Leave
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

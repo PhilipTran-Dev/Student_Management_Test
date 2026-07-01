@@ -27,7 +27,7 @@ classApi.interceptors.response.use(
                     const { token: newToken } = res.data;
                     localStorage.setItem("token", newToken);
                     error.config.headers.Authorization = `Bearer ${newToken}`;
-                    return axios(error.config);
+                    return classApi(error.config);
                 }
             } catch {
                 // refresh failed — force logout

@@ -33,7 +33,7 @@ export default function ClassListPage() {
         setLoading(true);
         setError("");
         try {
-            const res = await classApi.get("/api/v1/classes/teacher");
+            const res = await classApi.get("/api/v1/teacher/classes");
             setClasses(res.data || []);
         } catch (err) {
             setError(err.response?.data?.message || "Failed to load classes. Please try again.");
@@ -91,7 +91,7 @@ export default function ClassListPage() {
 
         setFormLoading(true);
         try {
-            const res = await classApi.post("/api/v1/classes", {
+            const res = await classApi.post("/api/v1/teacher/classes", {
                 name: form.name.trim(),
                 courseId: form.courseId.trim(),
                 semesterId: form.semesterId.trim(),

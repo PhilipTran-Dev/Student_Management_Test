@@ -35,7 +35,7 @@ export default function ClassListPage() {
         setLoading(true);
         setError("");
         try {
-            const res = await classApi.get("/api/v1/classes/student");
+            const res = await classApi.get("/api/v1/student/classes");
             setClasses(res.data || []);
         } catch (err) {
             setError(err.response?.data?.message || "Failed to load your classes. Please try again.");
@@ -88,7 +88,7 @@ export default function ClassListPage() {
 
         setJoinLoading(true);
         try {
-            await classApi.post("/api/v1/classes/join", { code: code.toUpperCase() });
+            await classApi.post("/api/v1/student/classes/join", { code: code.toUpperCase() });
             setJoinCode("");
             showToast("Successfully joined the class!");
             await fetchClasses();
@@ -103,7 +103,7 @@ export default function ClassListPage() {
     const handleLeaveClass = async (classId) => {
         setLeaveLoading(true);
         try {
-            await classApi.delete(`/api/v1/classes/${classId}/leave`);
+            await classApi.post(`/api/v1/student/classes/${classId}/leave`);
             setClasses((prev) => prev.filter((c) => (c.id || c.classId) !== classId));
             setShowLeaveConfirm(null);
             showToast("You have left the class");

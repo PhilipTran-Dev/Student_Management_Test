@@ -40,6 +40,15 @@ classApi.interceptors.response.use(
 );
 
 /**
+ * Fetch all classes for the logged-in teacher.
+ * @returns {Promise<Array>} Array of class objects
+ */
+export const fetchClasses = async () => {
+    const response = await classApi.get("/api/v1/classes/teacher/all");
+    return response.data;
+};
+
+/**
  * Create a new class.
  * @param {Object} payload - { name, courseId, semesterId }
  * @returns {Promise<Object>} The created class object with system-generated code

@@ -4,21 +4,13 @@ import { createClass } from "../../services/classService";
 
 // ── Mock data for dropdowns ──────────────────────────────────────────────
 const MOCK_COURSES = [
-    { id: 101, name: "Introduction to Programming" },
-    { id: 102, name: "Data Structures & Algorithms" },
-    { id: 103, name: "Calculus I" },
-    { id: 104, name: "Physics for Engineers" },
-    { id: 105, name: "Academic English" },
-    { id: 106, name: "Database Systems" },
-    { id: 107, name: "Operating Systems" },
-    { id: 108, name: "Software Engineering" },
+    { id: 101, name: "Java Backend Development" },
+    { id: 102, name: "Distributed Systems" },
 ];
 
 const MOCK_SEMESTERS = [
-    { id: 1, name: "Fall 2025" },
-    { id: 2, name: "Spring 2026" },
-    { id: 3, name: "Summer 2026" },
-    { id: 4, name: "Fall 2026" },
+    { id: 1, name: "Semester 1 (Fall 2026)" },
+    { id: 2, name: "Semester 2 (Spring 2027)" },
 ];
 
 // ── Toast component ──────────────────────────────────────────────────────
@@ -61,8 +53,8 @@ function Toast({ message, type, code, onClose }) {
                 <button
                     onClick={onClose}
                     className={`w-full py-2.5 rounded-lg text-white font-semibold text-sm transition-colors cursor-pointer ${isSuccess
-                            ? "bg-emerald-600 hover:bg-emerald-700"
-                            : "bg-red-600 hover:bg-red-700"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : "bg-red-600 hover:bg-red-700"
                         }`}
                 >
                     {isSuccess ? "Done" : "Try Again"}
@@ -73,7 +65,7 @@ function Toast({ message, type, code, onClose }) {
 }
 
 // ── Main modal component ─────────────────────────────────────────────────
-export default function CreateClassModal({ onClose, onClassCreated }) {
+export default function CreateClassModal({ onClose, onSuccess }) {
     const [form, setForm] = useState({
         name: "",
         courseId: "",
@@ -125,9 +117,9 @@ export default function CreateClassModal({ onClose, onClassCreated }) {
                 code: createdClass.code || "N/A",
             });
 
-            // Notify parent so it can refresh the list
-            if (onClassCreated) {
-                onClassCreated(createdClass);
+            // Notify parent to re-fetch the full class list
+            if (onSuccess) {
+                onSuccess();
             }
         } catch (err) {
             // ── Error ──────────────────────────────────────────────────
@@ -212,7 +204,7 @@ export default function CreateClassModal({ onClose, onClassCreated }) {
                             disabled={loading}
                             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 mb-4 appearance-none bg-white"
                         >
-                            <option value="">-- Select a course --</option>
+                            <option value="">--- Select a Course ---</option>
                             {MOCK_COURSES.map((course) => (
                                 <option key={course.id} value={course.id}>
                                     {course.name}
@@ -231,7 +223,7 @@ export default function CreateClassModal({ onClose, onClassCreated }) {
                             disabled={loading}
                             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 mb-6 appearance-none bg-white"
                         >
-                            <option value="">-- Select a semester --</option>
+                            <option value="">--- Select a Semester ---</option>
                             {MOCK_SEMESTERS.map((sem) => (
                                 <option key={sem.id} value={sem.id}>
                                     {sem.name}

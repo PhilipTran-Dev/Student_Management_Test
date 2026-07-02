@@ -61,4 +61,39 @@ export const createClass = async (payload) => {
     return response.data;
 };
 
+/**
+ * Fetch all announcements for a class.
+ * @param {number|string} classId - The class ID
+ * @param {string} role - "teacher" or "student"
+ * @returns {Promise<Array>} Array of announcement objects
+ */
+export const fetchAnnouncements = async (classId, role) => {
+    const response = await classApi.get(
+        `/api/v1/classes/${role.toLowerCase()}/${classId}/announcements`
+    );
+    return response.data;
+};
+
+/**
+ * Create a new announcement (teacher only).
+ * @param {number|string} classId - The class ID
+ * @param {Object} payload - { title, content }
+ * @returns {Promise<Object>} The created announcement object
+ */
+export const createAnnouncement = async (classId, payload) => {
+    const response = await classApi.post(
+        `/api/v1/classes/teacher/${classId}/announcements`,
+        payload
+    );
+    return response.data;
+};
+
+/**
+ * Delete an announcement (teacher only).
+ * @param {number|string} id - The announcement ID
+ */
+export const deleteAnnouncement = async (id) => {
+    await classApi.delete(`/api/v1/classes/teacher/announcements/${id}`);
+};
+
 export default classApi;

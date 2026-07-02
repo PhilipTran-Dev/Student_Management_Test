@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
     ArrowLeft, Bell, Users, FileText, Download, Megaphone, User, Calendar,
     BookOpen, Clock, MapPin, UserCheck, GraduationCap, ExternalLink, FileType,
-    DownloadCloud, Bot
+    DownloadCloud, Loader2
 } from "lucide-react";
+import { fetchAnnouncements } from "../../services/classService";
 
 const MOCK_CLASS = {
     id: "CS101",
@@ -33,13 +34,6 @@ const MOCK_CLASS = {
     ],
 };
 
-const MOCK_ANNOUNCEMENTS = [
-    { id: 1, title: "Welcome to the course!", content: "Please review the syllabus and course materials before our first session. All lecture slides are available in the Course Materials tab.", author: "Dr. Tran Van B", date: "2026-01-10", pinned: true },
-    { id: 2, title: "Midterm Exam Schedule", content: "The midterm exam will be held on March 15th at 9:00 AM in Hall B. Bring your student ID. The exam covers chapters 1-6.", author: "Dr. Tran Van B", date: "2026-02-20", pinned: false },
-    { id: 3, title: "Office Hours Update", content: "Office hours have been changed to Wednesdays 2-4 PM in Room 305. Please sign up via the link posted in the announcements.", author: "Dr. Tran Van B", date: "2026-03-01", pinned: false },
-    { id: 4, title: "Assignment 2 Released", content: "Assignment 2 is now available. It covers loops and functions. Due date: March 10th at 11:59 PM. Submit via the assignment portal.", author: "Prof. Le Thi C", date: "2026-03-05", pinned: true },
-];
-
 const MOCK_MATERIALS = [
     { id: 1, name: "Syllabus - Introduction to Programming", type: "pdf", size: "1.2 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-10", format: "PDF" },
     { id: 2, name: "Chapter 1 - Introduction & Setup", type: "pdf", size: "2.4 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-12", format: "PDF" },
@@ -63,25 +57,85 @@ const TYPE_ICONS = {
     link: { bg: "bg-blue-50", text: "text-blue-600", icon: ExternalLink },
 };
 
+// ── Avatar helpers ───────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+    "bg-rose-500", "bg-blue-500", "bg-amber-500", "bg-emerald-500",
+    "bg-purple-500", "bg-cyan-500", "bg-pink-500", "bg-indigo-500",
+];
+
+const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const getAvatarColor = (name) => {
+    if (!name) return AVATAR_COLORS[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
+const formatDate = (dateStr) => {
+    try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    } catch {
+        return dateStr || "Unknown date";
+    }
+};
+
 export default function ClassDetailPage() {
     const { classId } = useParams();
+    const userRole = localStorage.getItem("role") || "STUDENT";
     const [activeTab, setActiveTab] = useState("overview");
     const [downloadStates, setDownloadStates] = useState({});
 
+    // ── Announcements state ──────────────────────────────────────────────
+    const [announcements, setAnnouncements] = useState([]);
+    const [annLoading, setAnnLoading] = useState(false);
+    const [annError, setAnnError] = useState(null);
+
+    // ── Fetch announcements ──────────────────────────────────────────────
+    const loadAnnouncements = useCallback(async () => {
+        setAnnLoading(true);
+        setAnnError(null);
+        try {
+            const data = await fetchAnnouncements(classId, userRole);
+            setAnnouncements(Array.isArray(data) ? data : []);
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.response?.data?.error ||
+                err.message ||
+                "Failed to load announcements.";
+            setAnnError(msg);
+            setAnnouncements([]);
+        } finally {
+            setAnnLoading(false);
+        }
+    }, [classId, userRole]);
+
+    useEffect(() => {
+        if (activeTab === "announcements") {
+            loadAnnouncements();
+        }
+    }, [activeTab, loadAnnouncements]);
+
     const handleDownload = (materialId) => {
         setDownloadStates((prev) => ({ ...prev, [materialId]: true }));
-        // Simulate download
         setTimeout(() => {
             setDownloadStates((prev) => ({ ...prev, [materialId]: false }));
-            // In production: use axios to fetch blob, then trigger download
-            // const res = await axios.get(`/api/student/classes/${classId}/materials/${materialId}/download`, { responseType: 'blob' });
-            // const url = window.URL.createObjectURL(new Blob([res.data]));
-            // const link = document.createElement('a'); link.href = url; link.download = material.name; link.click();
         }, 1500);
-    };
-
-    const getInitials = (name) => {
-        return name.split(" ").pop()[0];
     };
 
     const cls = MOCK_CLASS;
@@ -130,7 +184,6 @@ export default function ClassDetailPage() {
             {/* ===== Overview Tab ===== */}
             {activeTab === "overview" && (
                 <div className="space-y-6">
-                    {/* Course Description */}
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                             <BookOpen className="w-5 h-5 text-indigo-500" />
@@ -139,7 +192,6 @@ export default function ClassDetailPage() {
                         <p className="text-sm text-gray-600 leading-relaxed">{cls.description}</p>
                     </div>
 
-                    {/* Class Schedule */}
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                             <Clock className="w-5 h-5 text-indigo-500" />
@@ -162,7 +214,6 @@ export default function ClassDetailPage() {
                         </div>
                     </div>
 
-                    {/* Quick Info Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
                             <div className="p-2.5 rounded-lg bg-indigo-50">
@@ -198,7 +249,6 @@ export default function ClassDetailPage() {
             {/* ===== Class Members Tab ===== */}
             {activeTab === "members" && (
                 <div className="space-y-6">
-                    {/* Instructors Section */}
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100 bg-amber-50/30">
                             <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -207,7 +257,7 @@ export default function ClassDetailPage() {
                             </h2>
                         </div>
                         <div className="divide-y divide-gray-100">
-                            {cls.instructors.map((inst, idx) => (
+                            {cls.instructors.map((inst) => (
                                 <div key={inst.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors">
                                     <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-sm font-semibold text-amber-700">
                                         {getInitials(inst.name)}
@@ -224,7 +274,6 @@ export default function ClassDetailPage() {
                         </div>
                     </div>
 
-                    {/* Classmates Section */}
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100 bg-indigo-50/30">
                             <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -233,7 +282,7 @@ export default function ClassDetailPage() {
                             </h2>
                         </div>
                         <div className="divide-y divide-gray-100">
-                            {cls.classmates.map((student, idx) => (
+                            {cls.classmates.map((student) => (
                                 <div key={student.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors">
                                     <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-semibold text-indigo-700">
                                         {getInitials(student.name)}
@@ -252,37 +301,84 @@ export default function ClassDetailPage() {
                 </div>
             )}
 
-            {/* ===== Announcements Tab ===== */}
+            {/* ===== Announcements Tab (Live from API) ===== */}
             {activeTab === "announcements" && (
                 <div className="space-y-4">
-                    {MOCK_ANNOUNCEMENTS.length === 0 ? (
-                        <div className="text-center py-16 text-gray-400">
-                            <Megaphone className="w-12 h-12 mx-auto mb-3" />
-                            <p className="text-sm font-medium">No announcements yet</p>
+                    {annLoading ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                            <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                            <p className="text-sm">Loading announcements...</p>
+                        </div>
+                    ) : annError ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <Megaphone className="w-10 h-10 text-red-300 mb-3" />
+                            <p className="text-sm font-medium text-gray-900 mb-1">Failed to load announcements</p>
+                            <p className="text-xs text-gray-500 mb-3">{annError}</p>
+                            <button
+                                onClick={loadAnnouncements}
+                                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors cursor-pointer"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    ) : announcements.length === 0 ? (
+                        <div className="text-center py-20 text-gray-400">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-50 flex items-center justify-center">
+                                <Megaphone className="w-8 h-8 text-gray-300" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-500">
+                                Welcome to the class feed stream!
+                            </p>
+                            <p className="text-xs mt-1 max-w-xs mx-auto text-gray-400">
+                                Announcements, updates, and discussions from your instructor will appear right here.
+                            </p>
                         </div>
                     ) : (
-                        MOCK_ANNOUNCEMENTS
-                            .sort((a, b) => new Date(b.date) - new Date(a.date))
-                            .map((item) => (
-                                <div key={item.id} className={`bg-white rounded-xl border p-5 ${item.pinned ? "border-indigo-200 bg-indigo-50/30" : "border-gray-200"}`}>
-                                    <div className="flex items-start gap-3">
-                                        <div className={`p-2 rounded-lg ${item.pinned ? "bg-indigo-100" : "bg-gray-100"}`}>
-                                            {item.pinned ? <Bell className="w-4 h-4 text-indigo-600" /> : <Megaphone className="w-4 h-4 text-gray-500" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <h3 className="font-semibold text-gray-900 text-sm">{item.title}</h3>
-                                                {item.pinned && <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-semibold">Pinned</span>}
+                        [...announcements]
+                            .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
+                            .map((item) => {
+                                const authorName = item.authorName || item.author || "Instructor";
+                                const initials = getInitials(authorName);
+                                const avatarColor = getAvatarColor(authorName);
+                                const timestamp = formatDate(item.createdAt || item.date);
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5"
+                                    >
+                                        {/* Author header */}
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div
+                                                className={`w-9 h-9 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}
+                                            >
+                                                {initials}
                                             </div>
-                                            <p className="text-sm text-gray-600 mt-1.5">{item.content}</p>
-                                            <div className="flex items-center gap-3 mt-3 text-xs text-gray-400">
-                                                <span className="flex items-center gap-1"><User className="w-3 h-3" />{item.author}</span>
-                                                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(item.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                                    {authorName}
+                                                </p>
+                                                <p className="text-[11px] text-gray-400">
+                                                    {timestamp}
+                                                </p>
                                             </div>
                                         </div>
+
+                                        {/* Title */}
+                                        {item.title && (
+                                            <h3 className="text-sm font-bold text-gray-900 mb-1.5">
+                                                {item.title}
+                                            </h3>
+                                        )}
+
+                                        {/* Content with preserved line breaks */}
+                                        {item.content && (
+                                            <p className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">
+                                                {item.content}
+                                            </p>
+                                        )}
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                     )}
                 </div>
             )}

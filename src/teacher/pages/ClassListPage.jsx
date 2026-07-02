@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, Plus, X, Edit3, Trash2, Users, CheckCircle, AlertTriangle, School, Search, Filter } from "lucide-react";
+import CreateClassModal from "../components/CreateClassModal";
 
 const MOCK_CLASSES = [
     { id: "CS101", name: "Introduction to Programming", students: 45, code: "CS101-2026", color: "emerald", semester: "Spring 2026", faculty: "Computer Science" },
@@ -26,6 +27,7 @@ export default function ClassListPage() {
     const [form, setForm] = useState({ name: "", code: "", autoCode: true });
     const [formError, setFormError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [successToast, setSuccessToast] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [semesterFilter, setSemesterFilter] = useState("all");
     const [facultyFilter, setFacultyFilter] = useState("all");
@@ -57,18 +59,19 @@ export default function ClassListPage() {
         }
     };
 
-    const generateCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    const handleCreate = async (e) => {
-        e.preventDefault(); setFormError("");
-        if (!form.name.trim()) { setFormError("Class name is required"); return; }
-        const code = form.autoCode ? generateCode() : form.code;
-        setLoading(true);
-        try {
-            await new Promise((r) => setTimeout(r, 800));
-            setClasses((p) => [...p, { id: code, name: form.name, students: 0, code, color: "emerald", semester: "Spring 2026", faculty: "Computer Science" }]);
-            setShowCreate(false); setForm({ name: "", code: "", autoCode: true });
-        } finally { setLoading(false); }
+    const handleClassCreated = (newClass) => {
+        setClasses((prev) => [
+            {
+                id: newClass.id || newClass.code,
+                name: newClass.name,
+                students: 0,
+                code: newClass.code,
+                color: "emerald",
+                semester: "Spring 2026",
+                faculty: "Computer Science",
+            },
+            ...prev,
+        ]);
     };
 
     const handleUpdate = async (e) => {
@@ -187,31 +190,10 @@ export default function ClassListPage() {
 
             {/* Create Modal */}
             {showCreate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-black/40" onClick={() => setShowCreate(false)} />
-                    <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md z-10">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-gray-900">Create New Class</h2>
-                            <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-5 h-5" /></button>
-                        </div>
-                        {formError && <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{formError}</div>}
-                        <form onSubmit={handleCreate}>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Class Name</label>
-                            <input name="name" value={form.name} onChange={handleChange} placeholder="e.g. Advanced Programming" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 mb-3" autoFocus />
-                            <label className="flex items-center gap-2 mb-3 cursor-pointer">
-                                <input type="checkbox" name="autoCode" checked={form.autoCode} onChange={handleChange} className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
-                                <span className="text-sm text-gray-600">Auto-generate class code</span>
-                            </label>
-                            {!form.autoCode && (
-                                <div className="mb-3">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Class Code</label>
-                                    <input name="code" value={form.code} onChange={handleChange} placeholder="e.g. CS101-2026" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" />
-                                </div>
-                            )}
-                            <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold text-sm transition-colors cursor-pointer">{loading ? "Creating..." : "Create Class"}</button>
-                        </form>
-                    </div>
-                </div>
+                <CreateClassModal
+                    onClose={() => setShowCreate(false)}
+                    onClassCreated={handleClassCreated}
+                />
             )}
 
             {/* Update Modal */}

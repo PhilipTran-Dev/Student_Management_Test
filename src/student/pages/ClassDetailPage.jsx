@@ -3,9 +3,13 @@ import { useParams, Link } from "react-router-dom";
 import {
     ArrowLeft, Bell, Users, FileText, Download, Megaphone, User, Calendar,
     BookOpen, Clock, MapPin, UserCheck, GraduationCap, ExternalLink, FileType,
-    DownloadCloud, Loader2
+    DownloadCloud, Loader2, AlertCircle, Paperclip
 } from "lucide-react";
-import { fetchAnnouncements } from "../../services/classService";
+import {
+    fetchAnnouncements,
+    fetchMaterials,
+    getDownloadUrl,
+} from "../../services/classService";
 
 const MOCK_CLASS = {
     id: "CS101",
@@ -34,16 +38,6 @@ const MOCK_CLASS = {
     ],
 };
 
-const MOCK_MATERIALS = [
-    { id: 1, name: "Syllabus - Introduction to Programming", type: "pdf", size: "1.2 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-10", format: "PDF" },
-    { id: 2, name: "Chapter 1 - Introduction & Setup", type: "pdf", size: "2.4 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-12", format: "PDF" },
-    { id: 3, name: "Chapter 2 - Data Types & Variables", type: "pptx", size: "5.1 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-19", format: "PPTX" },
-    { id: 4, name: "Week 3 - Lecture Notes", type: "pdf", size: "1.8 MB", uploadedBy: "Dr. Tran Van B", date: "2026-01-26", format: "PDF" },
-    { id: 5, name: "Assignment 1 - Instructions", type: "pdf", size: "0.9 MB", uploadedBy: "Prof. Le Thi C", date: "2026-02-02", format: "PDF" },
-    { id: 6, name: "Chapter 3 - Control Structures", type: "pptx", size: "4.3 MB", uploadedBy: "Dr. Tran Van B", date: "2026-02-09", format: "PPTX" },
-    { id: 7, name: "External: Python Official Docs", type: "link", url: "https://docs.python.org/3/", uploadedBy: "Dr. Tran Van B", date: "2026-01-10", format: "Link" },
-];
-
 const TABS = [
     { key: "overview", label: "Overview", icon: BookOpen },
     { key: "members", label: "Class Members", icon: Users },
@@ -51,10 +45,34 @@ const TABS = [
     { key: "materials", label: "Course Materials", icon: FileText },
 ];
 
-const TYPE_ICONS = {
-    pdf: { bg: "bg-red-50", text: "text-red-600", icon: FileType },
-    pptx: { bg: "bg-orange-50", text: "text-orange-600", icon: FileType },
-    link: { bg: "bg-blue-50", text: "text-blue-600", icon: ExternalLink },
+// ── File type helpers ────────────────────────────────────────────────────
+const getFileIconType = (name) => {
+    const ext = name?.split(".").pop()?.toLowerCase();
+    if (["pdf"].includes(ext)) return "pdf";
+    if (["pptx", "ppt"].includes(ext)) return "pptx";
+    if (["docx", "doc"].includes(ext)) return "docx";
+    if (["xlsx", "xls"].includes(ext)) return "xlsx";
+    if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) return "image";
+    if (["mp4", "mov", "avi", "mkv"].includes(ext)) return "video";
+    return "file";
+};
+
+const getFileIconColor = (type) => {
+    const map = {
+        pdf: "text-red-500 bg-red-50",
+        pptx: "text-orange-500 bg-orange-50",
+        docx: "text-blue-500 bg-blue-50",
+        xlsx: "text-green-500 bg-green-50",
+        image: "text-purple-500 bg-purple-50",
+        video: "text-pink-500 bg-pink-50",
+        file: "text-gray-500 bg-gray-100",
+    };
+    return map[type] || map.file;
+};
+
+const getFileIconLabel = (type) => {
+    const map = { pdf: "PDF", pptx: "PPTX", docx: "DOCX", xlsx: "XLSX", image: "IMG", video: "VID", file: "FILE" };
+    return map[type] || map.file;
 };
 
 // ── Avatar helpers ───────────────────────────────────────────────────────
@@ -94,16 +112,29 @@ const formatDate = (dateStr) => {
     }
 };
 
+const formatFileSize = (bytes) => {
+    if (!bytes && bytes !== 0) return "Unknown size";
+    if (bytes === 0) return "0 B";
+    const kb = bytes / 1024;
+    if (kb < 1024) return kb.toFixed(1) + " KB";
+    return (kb / 1024).toFixed(2) + " MB";
+};
+
 export default function ClassDetailPage() {
     const { classId } = useParams();
     const userRole = localStorage.getItem("role") || "STUDENT";
     const [activeTab, setActiveTab] = useState("overview");
-    const [downloadStates, setDownloadStates] = useState({});
 
     // ── Announcements state ──────────────────────────────────────────────
     const [announcements, setAnnouncements] = useState([]);
     const [annLoading, setAnnLoading] = useState(false);
     const [annError, setAnnError] = useState(null);
+
+    // ── Materials state ──────────────────────────────────────────────────
+    const [materials, setMaterials] = useState([]);
+    const [matLoading, setMatLoading] = useState(false);
+    const [matError, setMatError] = useState(null);
+    const [downloadingId, setDownloadingId] = useState(null);
 
     // ── Fetch announcements ──────────────────────────────────────────────
     const loadAnnouncements = useCallback(async () => {
@@ -131,11 +162,47 @@ export default function ClassDetailPage() {
         }
     }, [activeTab, loadAnnouncements]);
 
-    const handleDownload = (materialId) => {
-        setDownloadStates((prev) => ({ ...prev, [materialId]: true }));
-        setTimeout(() => {
-            setDownloadStates((prev) => ({ ...prev, [materialId]: false }));
-        }, 1500);
+    // ── Fetch materials ──────────────────────────────────────────────────
+    const loadMaterials = useCallback(async () => {
+        setMatLoading(true);
+        setMatError(null);
+        try {
+            const data = await fetchMaterials(classId, userRole);
+            setMaterials(Array.isArray(data) ? data : []);
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.response?.data?.error ||
+                err.message ||
+                "Failed to load materials.";
+            setMatError(msg);
+            setMaterials([]);
+        } finally {
+            setMatLoading(false);
+        }
+    }, [classId, userRole]);
+
+    useEffect(() => {
+        if (activeTab === "materials") {
+            loadMaterials();
+        }
+    }, [activeTab, loadMaterials]);
+
+    // ── Download material via presigned URL ───────────────────────────────
+    const handleDownload = async (materialId) => {
+        setDownloadingId(materialId);
+        try {
+            const downloadUrl = await getDownloadUrl(materialId);
+            window.open(downloadUrl, "_blank", "noopener,noreferrer");
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.message ||
+                "Failed to get download link.";
+            alert(msg);
+        } finally {
+            setDownloadingId(null);
+        }
     };
 
     const cls = MOCK_CLASS;
@@ -383,61 +450,94 @@ export default function ClassDetailPage() {
                 </div>
             )}
 
-            {/* ===== Course Materials Tab ===== */}
+            {/* ===== Course Materials Tab (Live from API) ===== */}
             {activeTab === "materials" && (
                 <div className="space-y-3">
-                    {MOCK_MATERIALS.length === 0 ? (
-                        <div className="text-center py-16 text-gray-400">
-                            <FileText className="w-12 h-12 mx-auto mb-3" />
-                            <p className="text-sm font-medium">No course materials available</p>
+                    {matLoading ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                            <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                            <p className="text-sm">Loading materials...</p>
+                        </div>
+                    ) : matError ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <AlertCircle className="w-10 h-10 text-red-300 mb-3" />
+                            <p className="text-sm font-medium text-gray-900 mb-1">Failed to load materials</p>
+                            <p className="text-xs text-gray-500 mb-3">{matError}</p>
+                            <button
+                                onClick={loadMaterials}
+                                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors cursor-pointer"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    ) : materials.length === 0 ? (
+                        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-50 flex items-center justify-center">
+                                <FileText className="w-8 h-8 text-gray-300" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-500 mb-1">
+                                No lesson materials uploaded yet.
+                            </p>
+                            <p className="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
+                                Course documents, lecture slides, and tutorials will be published here by your instructor.
+                            </p>
                         </div>
                     ) : (
-                        MOCK_MATERIALS.map((mat) => {
-                            const typeStyle = TYPE_ICONS[mat.type] || TYPE_ICONS.pdf;
-                            const isDownloading = downloadStates[mat.id];
-                            const IconComp = typeStyle.icon;
+                        [...materials]
+                            .sort((a, b) => new Date(b.createdAt || b.uploadDate || 0) - new Date(a.createdAt || a.uploadDate || 0))
+                            .map((material) => {
+                                const fileName = material.fileName || material.name || "Untitled";
+                                const fileSize = material.fileSize || material.size;
+                                const uploadDate = material.createdAt || material.uploadDate || material.date;
+                                const iconType = getFileIconType(fileName);
+                                const materialId = material.id || material.fileId;
 
-                            return (
-                                <div key={mat.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:border-gray-300 transition-colors">
-                                    <div className={`p-2.5 rounded-lg ${typeStyle.bg}`}>
-                                        <IconComp className={`w-5 h-5 ${typeStyle.text}`} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900 truncate">{mat.name}</p>
-                                        <p className="text-xs text-gray-400 mt-0.5">
-                                            {mat.format} {mat.size && `· ${mat.size}`} · {mat.date} · {mat.uploadedBy}
-                                        </p>
-                                    </div>
-                                    {mat.type === "link" ? (
-                                        <a
-                                            href={mat.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                                            title="Open link"
-                                        >
-                                            <ExternalLink className="w-4 h-4" />
-                                        </a>
-                                    ) : (
-                                        <button
-                                            onClick={() => handleDownload(mat.id)}
-                                            disabled={isDownloading}
-                                            className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                            title="Download"
-                                        >
-                                            {isDownloading ? (
-                                                <svg className="animate-spin h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                </svg>
+                                return (
+                                    <div
+                                        key={materialId}
+                                        className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer group"
+                                        onClick={() => handleDownload(materialId)}
+                                    >
+                                        {/* File icon */}
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${getFileIconColor(iconType)}`}>
+                                            {getFileIconLabel(iconType)}
+                                        </div>
+
+                                        {/* File info */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                                {fileName}
+                                            </p>
+                                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                {fileSize && (
+                                                    <span className="text-[11px] text-gray-400">
+                                                        {formatFileSize(fileSize)}
+                                                    </span>
+                                                )}
+                                                {fileSize && uploadDate && (
+                                                    <span className="text-[11px] text-gray-300">·</span>
+                                                )}
+                                                {uploadDate && (
+                                                    <span className="text-[11px] text-gray-400">
+                                                        {formatDate(uploadDate)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Download button */}
+                                        <div className="flex-shrink-0">
+                                            {downloadingId === materialId ? (
+                                                <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
                                             ) : (
-                                                <Download className="w-4 h-4" />
+                                                <div className="p-2 rounded-lg text-gray-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors">
+                                                    <Download className="w-4 h-4" />
+                                                </div>
                                             )}
-                                        </button>
-                                    )}
-                                </div>
-                            );
-                        })
+                                        </div>
+                                    </div>
+                                );
+                            })
                     )}
                 </div>
             )}

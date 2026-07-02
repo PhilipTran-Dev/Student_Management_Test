@@ -2,12 +2,16 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
     ArrowLeft, Megaphone, Users, Plus, X, Edit3, Trash2, Pencil, UserMinus, UserPlus, FileText, Link2, UploadCloud,
-    Loader2, Send, User
+    Loader2, Send, User, Paperclip, Download, AlertCircle, CheckCircle
 } from "lucide-react";
 import {
     fetchAnnouncements,
     createAnnouncement,
     deleteAnnouncement,
+    fetchMaterials,
+    uploadMaterial,
+    getDownloadUrl,
+    deleteMaterial,
 } from "../../services/classService";
 
 const MOCK_STUDENTS = [
@@ -75,6 +79,14 @@ const formatDate = (dateStr) => {
     }
 };
 
+const formatFileSize = (bytes) => {
+    if (!bytes && bytes !== 0) return "Unknown size";
+    if (bytes === 0) return "0 B";
+    const kb = bytes / 1024;
+    if (kb < 1024) return kb.toFixed(1) + " KB";
+    return (kb / 1024).toFixed(2) + " MB";
+};
+
 export default function ClassDetailPage() {
     const { classId } = useParams();
     const userRole = localStorage.getItem("role") || "TEACHER";
@@ -104,10 +116,13 @@ export default function ClassDetailPage() {
 
     // ── Materials state ──────────────────────────────────────────────────
     const [materials, setMaterials] = useState([]);
-    const [showAddMaterial, setShowAddMaterial] = useState(false);
-    const [attachments, setAttachments] = useState([{ id: 1, name: "", type: "file", file: null, url: "" }]);
-    const [materialTitle, setMaterialTitle] = useState("");
-    const attachmentIdCounter = useRef(attachments.length);
+    const [matLoading, setMatLoading] = useState(false);
+    const [matError, setMatError] = useState(null);
+    const [uploadingFile, setUploadingFile] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadSuccess, setUploadSuccess] = useState("");
+    const [downloadingId, setDownloadingId] = useState(null);
+    const fileInputRef = useRef(null);
 
     // ── Fetch announcements ──────────────────────────────────────────────
     const loadAnnouncements = useCallback(async () => {
@@ -201,84 +216,101 @@ export default function ClassDetailPage() {
 
     const handleRemoveStudent = (id) => { setStudents((p) => p.filter((s) => s.id !== id)); setShowRemoveStudent(null); };
 
-    // ── Material handlers ────────────────────────────────────────────────
-    const openAddMaterial = () => {
-        setMaterialTitle("");
-        setAttachments([{ id: 1, name: "", type: "file", file: null, url: "" }]);
-        setFormError("");
-        setShowAddMaterial(true);
-    };
-
-    const addAttachmentRow = () => {
-        attachmentIdCounter.current += 1;
-        setAttachments((prev) => [...prev, { id: attachmentIdCounter.current, name: "", type: "file", file: null, url: "" }]);
-    };
-
-    const removeAttachment = (id) => {
-        setAttachments((prev) => prev.filter((a) => a.id !== id));
-    };
-
-    const updateAttachment = (id, field, value) => {
-        setAttachments((prev) => prev.map((a) => a.id === id ? { ...a, [field]: value } : a));
-    };
-
-    const handleFileSelect = (id, files) => {
-        if (!files || files.length === 0) return;
-        const file = files[0];
-        updateAttachment(id, "file", file);
-        updateAttachment(id, "name", file.name);
-    };
-
-    const handleSubmitMaterials = async (e) => {
-        e.preventDefault();
-        setFormError("");
-
-        if (!materialTitle.trim()) {
-            setFormError("Please provide a title for this material set.");
-            return;
-        }
-
-        const validAttachments = attachments.filter((a) => {
-            if (a.type === "file") return a.file !== null;
-            return a.url.trim() !== "" && a.name.trim() !== "";
-        });
-
-        if (validAttachments.length === 0) {
-            setFormError("Please add at least one file or link.");
-            return;
-        }
-
-        setLoading(true);
+    // ── Materials fetch ──────────────────────────────────────────────────
+    const loadMaterials = useCallback(async () => {
+        setMatLoading(true);
+        setMatError(null);
         try {
-            await new Promise((r) => setTimeout(r, 500));
-
-            const newMaterials = validAttachments.map((a) => {
-                const iconType = a.type === "file"
-                    ? getFileIconType(a.file?.name || a.name)
-                    : getFileIconType(a.name);
-                return {
-                    id: Date.now() + Math.random(),
-                    title: materialTitle,
-                    name: a.type === "file" ? (a.file?.name || a.name) : a.name,
-                    type: a.type,
-                    file: a.file,
-                    url: a.url,
-                    iconType,
-                    date: new Date().toISOString().split("T")[0],
-                };
-            });
-
-            setMaterials((prev) => [...newMaterials, ...prev]);
-            setShowAddMaterial(false);
-            setMaterialTitle("");
-            setAttachments([{ id: 1, name: "", type: "file", file: null, url: "" }]);
+            const data = await fetchMaterials(classId, userRole);
+            setMaterials(Array.isArray(data) ? data : []);
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.response?.data?.error ||
+                err.message ||
+                "Failed to load materials.";
+            setMatError(msg);
+            setMaterials([]);
         } finally {
-            setLoading(false);
+            setMatLoading(false);
+        }
+    }, [classId, userRole]);
+
+    useEffect(() => {
+        if (tab === "materials") {
+            loadMaterials();
+        }
+    }, [tab, loadMaterials]);
+
+    // ── Upload material ──────────────────────────────────────────────────
+    const handleFileSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingFile(file);
+        setUploadSuccess("");
+    };
+
+    const handleUpload = async () => {
+        if (!uploadingFile) return;
+        setUploading(true);
+        setUploadSuccess("");
+        try {
+            const newMaterial = await uploadMaterial(classId, uploadingFile);
+            // Prepend the newly uploaded material to the list
+            setMaterials((prev) => [newMaterial, ...prev]);
+            setUploadSuccess(`"${uploadingFile.name}" uploaded successfully!`);
+            setUploadingFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            // Auto-clear success message after 4 seconds
+            setTimeout(() => setUploadSuccess(""), 4000);
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.response?.data?.error ||
+                err.message ||
+                "Failed to upload material.";
+            setUploadSuccess(""); // Clear any stale success
+            alert(msg);
+        } finally {
+            setUploading(false);
         }
     };
 
-    const handleDeleteMaterial = (id) => {
-        setMaterials((prev) => prev.filter((m) => m.id !== id));
+    const clearSelectedFile = () => {
+        setUploadingFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    // ── Download material ────────────────────────────────────────────────
+    const handleDownload = async (materialId, fileName) => {
+        setDownloadingId(materialId);
+        try {
+            const downloadUrl = await getDownloadUrl(materialId);
+            // Open the presigned URL in a new tab to trigger download
+            window.open(downloadUrl, "_blank", "noopener,noreferrer");
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.message ||
+                "Failed to get download link.";
+            alert(msg);
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
+    // ── Delete material ──────────────────────────────────────────────────
+    const handleDeleteMaterial = async (materialId) => {
+        try {
+            await deleteMaterial(materialId);
+            setMaterials((prev) => prev.filter((m) => m.id !== materialId));
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.message ||
+                "Failed to delete material.";
+            alert(msg);
+        }
     };
 
     // ── Announcements feed (shared render) ───────────────────────────────
@@ -484,138 +516,205 @@ export default function ClassDetailPage() {
             {/* ===== Materials Tab ===== */}
             {tab === "materials" && (
                 <div>
-                    <button onClick={openAddMaterial} className="mb-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition-colors cursor-pointer">
-                        <UploadCloud className="w-4 h-4" /> Add Course Material
-                    </button>
+                    {/* ── Teacher Upload Panel ───────────────────────────────── */}
+                    {isTeacher && (
+                        <div className="mb-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            {/* Upload header */}
+                            <div className="px-5 py-4 border-b border-gray-100 bg-emerald-50/30">
+                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                    <UploadCloud className="w-4 h-4 text-emerald-600" />
+                                    Upload Course Material
+                                </h3>
+                            </div>
 
-                    {materials.length === 0 ? (
-                        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
-                            <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                            <p className="text-gray-500 text-sm">No materials uploaded yet.</p>
-                            <p className="text-gray-400 text-xs mt-1">Click the button above to add files or links.</p>
-                        </div>
-                    ) : (
-                        <div className="grid gap-3">
-                            {materials.map((m) => (
-                                <div key={m.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold ${getFileIconColor(m.iconType)}`}>
-                                        {getFileIconLabel(m.iconType)}
+                            {/* Upload body */}
+                            <div className="p-5">
+                                {uploadSuccess && (
+                                    <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
+                                        <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                                        {uploadSuccess}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900 truncate">{m.name}</p>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            <span className="text-[11px] text-gray-400">{m.date}</span>
-                                            {m.type === "link" && (
-                                                <span className="inline-flex items-center gap-1 text-[11px] text-blue-500"><Link2 className="w-3 h-3" />External Link</span>
-                                            )}
+                                )}
+
+                                {!uploadingFile ? (
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="relative flex flex-col items-center justify-center w-full border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-all group"
+                                    >
+                                        <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-3 group-hover:bg-emerald-100 transition-colors">
+                                            <UploadCloud className="w-6 h-6 text-emerald-500" />
+                                        </div>
+                                        <p className="text-sm font-medium text-gray-700">
+                                            <span className="text-emerald-600 font-semibold">Click to select</span> or drag and drop
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            PDF, PPTX, DOCX, ZIP, images & more (Max 50MB)
+                                        </p>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                            accept=".pdf,.pptx,.ppt,.docx,.doc,.xlsx,.xls,.zip,.rar,.png,.jpg,.jpeg,.gif,.svg,.webp,.mp4,.mov"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {/* Selected file preview */}
+                                        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold ${getFileIconColor(getFileIconType(uploadingFile.name))}`}>
+                                                {getFileIconLabel(getFileIconType(uploadingFile.name))}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">{uploadingFile.name}</p>
+                                                <p className="text-xs text-gray-500">{formatFileSize(uploadingFile.size)}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={clearSelectedFile}
+                                                disabled={uploading}
+                                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40 cursor-pointer flex-shrink-0"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={handleUpload}
+                                                disabled={uploading}
+                                                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-semibold transition-colors cursor-pointer"
+                                            >
+                                                {uploading ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        Uploading...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <UploadCloud className="w-4 h-4" />
+                                                        Upload to Class
+                                                    </>
+                                                )}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={clearSelectedFile}
+                                                disabled={uploading}
+                                                className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 cursor-pointer"
+                                            >
+                                                Cancel
+                                            </button>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleDeleteMaterial(m.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 cursor-pointer flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
-                                </div>
-                            ))}
+                                )}
+                            </div>
                         </div>
                     )}
 
-                    {/* Add Material Modal */}
-                    {showAddMaterial && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <div className="fixed inset-0 bg-black/40" onClick={() => setShowAddMaterial(false)} />
-                            <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl z-10 max-h-[90vh] overflow-y-auto">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-lg font-semibold text-gray-900">Add Course Material</h2>
-                                    <button onClick={() => setShowAddMaterial(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-5 h-5" /></button>
-                                </div>
+                    {/* ── Material List ─────────────────────────────────────── */}
+                    {matLoading ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                            <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                            <p className="text-sm">Loading materials...</p>
+                        </div>
+                    ) : matError ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <AlertCircle className="w-10 h-10 text-red-300 mb-3" />
+                            <p className="text-sm font-medium text-gray-900 mb-1">Failed to load materials</p>
+                            <p className="text-xs text-gray-500 mb-3">{matError}</p>
+                            <button
+                                onClick={loadMaterials}
+                                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors cursor-pointer"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    ) : materials.length === 0 ? (
+                        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-50 flex items-center justify-center">
+                                <FileText className="w-8 h-8 text-gray-300" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-500 mb-1">
+                                No lesson materials uploaded yet.
+                            </p>
+                            <p className="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
+                                Course documents, lecture slides, and tutorials will be published here by your instructor.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {[...materials]
+                                .sort((a, b) => new Date(b.createdAt || b.uploadDate || 0) - new Date(a.createdAt || a.uploadDate || 0))
+                                .map((material) => {
+                                    const fileName = material.fileName || material.name || "Untitled";
+                                    const fileSize = material.fileSize || material.size;
+                                    const uploadDate = material.createdAt || material.uploadDate || material.date;
+                                    const iconType = getFileIconType(fileName);
+                                    const materialId = material.id || material.fileId;
 
-                                {formError && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>}
+                                    return (
+                                        <div
+                                            key={materialId}
+                                            className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:border-emerald-200 hover:shadow-sm transition-all cursor-pointer group"
+                                            onClick={() => handleDownload(materialId, fileName)}
+                                        >
+                                            {/* File icon */}
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${getFileIconColor(iconType)}`}>
+                                                {getFileIconLabel(iconType)}
+                                            </div>
 
-                                <form onSubmit={handleSubmitMaterials} className="space-y-5">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Material Title <span className="text-red-400">*</span></label>
-                                        <input value={materialTitle} onChange={(e) => setMaterialTitle(e.target.value)} placeholder="e.g. Week 1 - Introduction" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400" />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-3">Attachments</label>
-                                        <div className="space-y-3">
-                                            {attachments.map((att, idx) => (
-                                                <div key={att.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 relative">
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <span className="text-xs font-medium text-gray-500">Attachment #{idx + 1}</span>
-                                                        {attachments.length > 1 && (
-                                                            <button type="button" onClick={() => removeAttachment(att.id)} className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 cursor-pointer">
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex gap-2 mb-3">
-                                                        <button type="button" onClick={() => updateAttachment(att.id, "type", "file")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${att.type === "file" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:text-gray-700"}`}>
-                                                            <UploadCloud className="w-3.5 h-3.5 inline mr-1" />Local File
-                                                        </button>
-                                                        <button type="button" onClick={() => updateAttachment(att.id, "type", "link")} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${att.type === "link" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:text-gray-700"}`}>
-                                                            <Link2 className="w-3.5 h-3.5 inline mr-1" />External URL / Link
-                                                        </button>
-                                                    </div>
-
-                                                    {att.type === "file" ? (
-                                                        <div>
-                                                            <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-gray-300 rounded-xl p-5 cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors">
-                                                                <UploadCloud className="w-6 h-6 text-gray-400 mb-1" />
-                                                                <span className="text-xs text-gray-500 font-medium">Click to select a file</span>
-                                                                <span className="text-[10px] text-gray-400 mt-0.5">Supports PDF, PPTX, DOCX, images, and more</span>
-                                                                <input type="file" className="hidden" onChange={(e) => handleFileSelect(att.id, e.target.files)} />
-                                                            </label>
-                                                            {att.file && (
-                                                                <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg text-xs text-emerald-700">
-                                                                    <FileText className="w-3.5 h-3.5 flex-shrink-0" />
-                                                                    <span className="truncate">{att.file.name}</span>
-                                                                    <span className="text-emerald-400 flex-shrink-0">({(att.file.size / 1024).toFixed(1)} KB)</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="space-y-2">
-                                                            <input value={att.name} onChange={(e) => updateAttachment(att.id, "name", e.target.value)} placeholder="Link title (e.g. Python Documentation)" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400" />
-                                                            <div className="relative">
-                                                                <Link2 className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                                                <input value={att.url} onChange={(e) => updateAttachment(att.id, "url", e.target.value)} placeholder="https://example.com/documentation" className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400" />
-                                                            </div>
-                                                        </div>
+                                            {/* File info */}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                    {fileName}
+                                                </p>
+                                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                    {fileSize && (
+                                                        <span className="text-[11px] text-gray-400">
+                                                            {formatFileSize(fileSize)}
+                                                        </span>
+                                                    )}
+                                                    {fileSize && uploadDate && (
+                                                        <span className="text-[11px] text-gray-300">·</span>
+                                                    )}
+                                                    {uploadDate && (
+                                                        <span className="text-[11px] text-gray-400">
+                                                            {formatDate(uploadDate)}
+                                                        </span>
                                                     )}
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
 
-                                        <button type="button" onClick={addAttachmentRow} className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-dashed border-gray-300 text-sm text-gray-500 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors cursor-pointer w-full justify-center">
-                                            <Plus className="w-4 h-4" /> Add Another Attachment
-                                        </button>
-                                    </div>
-
-                                    {attachments.filter((a) => (a.type === "file" && a.file) || (a.type === "link" && a.url.trim() && a.name.trim())).length > 0 && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Preview ({attachments.filter((a) => (a.type === "file" && a.file) || (a.type === "link" && a.url.trim() && a.name.trim())).length} items)</label>
-                                            <div className="bg-gray-50 rounded-xl border border-gray-200 divide-y divide-gray-200">
-                                                {attachments.filter((a) => (a.type === "file" && a.file) || (a.type === "link" && a.url.trim() && a.name.trim())).map((a) => (
-                                                    <div key={a.id} className="flex items-center gap-3 px-4 py-3">
-                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold ${getFileIconColor(a.type === "file" ? getFileIconType(a.file?.name || a.name) : getFileIconType(a.name))}`}>
-                                                            {getFileIconLabel(a.type === "file" ? getFileIconType(a.file?.name || a.name) : getFileIconType(a.name))}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium text-gray-900 truncate">{a.type === "file" ? a.file?.name : a.name}</p>
-                                                            <p className="text-xs text-gray-400 truncate">{a.type === "link" ? a.url : `${(a.file?.size / 1024).toFixed(1)} KB`}</p>
-                                                        </div>
-                                                        <button type="button" onClick={() => removeAttachment(a.id)} className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 cursor-pointer flex-shrink-0"><X className="w-4 h-4" /></button>
+                                            {/* Download indicator */}
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                {downloadingId === materialId ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                                                ) : (
+                                                    <div className="p-1.5 rounded-lg text-gray-300 group-hover:text-emerald-600 group-hover:bg-emerald-50 transition-colors">
+                                                        <Download className="w-4 h-4" />
                                                     </div>
-                                                ))}
+                                                )}
+
+                                                {/* Delete button (teacher only) */}
+                                                {isTeacher && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteMaterial(materialId);
+                                                        }}
+                                                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                                                        title="Delete material"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
-                                    )}
-
-                                    <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold text-sm cursor-pointer">
-                                        {loading ? "Saving..." : "Upload Materials"}
-                                    </button>
-                                </form>
-                            </div>
+                                    );
+                                })}
                         </div>
                     )}
                 </div>

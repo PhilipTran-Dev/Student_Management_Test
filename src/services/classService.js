@@ -96,4 +96,48 @@ export const deleteAnnouncement = async (id) => {
     await classApi.delete(`/api/v1/classes/teacher/announcements/${id}`);
 };
 
+/**
+ * Fetch all materials for a class.
+ * @param {number|string} classId - The class ID
+ * @param {string} role - "teacher" or "student"
+ * @returns {Promise<Array>} Array of material objects
+ */
+export const fetchMaterials = async (classId, role) => {
+    const response = await classApi.get(`/api/v1/classes/${role.toLowerCase()}/${classId}/materials`);
+    return response.data;
+};
+
+/**
+ * Upload a material file (teacher only).
+ * @param {number|string} classId - The class ID
+ * @param {File} file - The file to upload
+ * @returns {Promise<Object>} The uploaded material object
+ */
+export const uploadMaterial = async (classId, file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await classApi.post(`/api/v1/classes/teacher/${classId}/materials/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+};
+
+/**
+ * Get a presigned download URL for a material file.
+ * @param {number|string} fileId - The material/file ID
+ * @returns {Promise<string>} The temporary download URL
+ */
+export const getDownloadUrl = async (fileId) => {
+    const response = await classApi.get(`/api/v1/classes/materials/${fileId}/download`);
+    return response.data.downloadUrl;
+};
+
+/**
+ * Delete a material file (teacher only).
+ * @param {number|string} fileId - The material/file ID
+ */
+export const deleteMaterial = async (fileId) => {
+    await classApi.delete(`/api/v1/classes/teacher/materials/${fileId}`);
+};
+
 export default classApi;

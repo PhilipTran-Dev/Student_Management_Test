@@ -49,6 +49,16 @@ export const fetchClasses = async () => {
 };
 
 /**
+ * Fetch a single class by its ID (teacher view).
+ * @param {number|string} classId - The class ID
+ * @returns {Promise<Object>} The class object with code, name, etc.
+ */
+export const fetchClassById = async (classId) => {
+    const response = await classApi.get(`/api/v1/classes/teacher/${classId}`);
+    return response.data;
+};
+
+/**
  * Create a new class.
  * @param {Object} payload - { name, courseId, semesterId }
  * @returns {Promise<Object>} The created class object with system-generated code
@@ -138,6 +148,17 @@ export const getDownloadUrl = async (fileId) => {
  */
 export const deleteMaterial = async (fileId) => {
     await classApi.delete(`/api/v1/classes/teacher/materials/${fileId}`);
+};
+
+/**
+ * Update the join password for a class (teacher only).
+ * @param {number|string} classId - The class ID
+ * @param {string} password - The new join password
+ * @returns {Promise<Object>} The updated class object
+ */
+export const updateClassPassword = async (classId, password) => {
+    const response = await classApi.put(`/api/v1/classes/teacher/${classId}/password`, { password });
+    return response.data;
 };
 
 export default classApi;

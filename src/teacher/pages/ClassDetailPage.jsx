@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
     ArrowLeft, Megaphone, Users, Plus, X, Edit3, Trash2, Pencil, UserMinus, UserPlus, FileText, Link2, UploadCloud,
-    Loader2, Send, User, Paperclip, Download, AlertCircle, CheckCircle
+    Loader2, Send, User, Paperclip, Download, AlertCircle, CheckCircle, Copy, Eye, EyeOff
 } from "lucide-react";
 import {
     fetchAnnouncements,
@@ -12,6 +12,8 @@ import {
     uploadMaterial,
     getDownloadUrl,
     deleteMaterial,
+    updateClassPassword,
+    fetchClasses,
 } from "../../services/classService";
 
 const MOCK_STUDENTS = [
@@ -114,6 +116,19 @@ export default function ClassDetailPage() {
     const [formError, setFormError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    // ── Access control state ─────────────────────────────────────────────
+    const [classPassword, setClassPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [savingPassword, setSavingPassword] = useState(false);
+    const [passwordSuccess, setPasswordSuccess] = useState("");
+
+    // ── Class data (fetched to get the alphanumeric code) ────────────────
+    const [classData, setClassData] = useState(null);
+
+    // The alphanumeric class code from the API response
+    const classCode = classData?.code || classId;
+
     // ── Materials state ──────────────────────────────────────────────────
     const [materials, setMaterials] = useState([]);
     const [matLoading, setMatLoading] = useState(false);
@@ -143,6 +158,25 @@ export default function ClassDetailPage() {
             setAnnLoading(false);
         }
     }, [classId, userRole]);
+
+    // ── Fetch class list and find the matching one for its code ──────────
+    useEffect(() => {
+        const loadClassCode = async () => {
+            try {
+                const classes = await fetchClasses();
+                const match = Array.isArray(classes) && classes.find((c) => String(c.id) === String(classId));
+                if (match) {
+                    setClassData(match);
+                    if (match.password) {
+                        setClassPassword(match.password);
+                    }
+                }
+            } catch {
+                // non-critical; uses classId fallback
+            }
+        };
+        loadClassCode();
+    }, [classId]);
 
     useEffect(() => {
         if (tab === "announcements") {
@@ -310,6 +344,37 @@ export default function ClassDetailPage() {
                 err.message ||
                 "Failed to delete material.";
             alert(msg);
+        }
+    };
+
+    // ── Copy class code to clipboard ─────────────────────────────────────
+    const handleCopyCode = async () => {
+        try {
+            await navigator.clipboard.writeText(classCode);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // fallback: silently ignore
+        }
+    };
+
+    // ── Save / update class password ─────────────────────────────────────
+    const handleSavePassword = async () => {
+        if (!classPassword.trim()) return;
+        setSavingPassword(true);
+        setPasswordSuccess("");
+        try {
+            await updateClassPassword(classId, classPassword.trim());
+            setPasswordSuccess("Class password updated successfully!");
+            setTimeout(() => setPasswordSuccess(""), 4000);
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.message ||
+                "Failed to update password.";
+            alert(msg);
+        } finally {
+            setSavingPassword(false);
         }
     };
 
@@ -723,18 +788,135 @@ export default function ClassDetailPage() {
             {/* ===== Members Tab ===== */}
             {tab === "members" && (
                 <div>
-                    <button onClick={() => setShowAddStudent(true)} className="mb-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition-colors cursor-pointer">
-                        <UserPlus className="w-4 h-4" /> Add Student
-                    </button>
-                    <div className="bg-white rounded-xl border border-gray-200">
-                        {students.map((s, idx) => (
-                            <div key={s.id} className={`flex items-center gap-3 px-5 py-3.5 ${idx < students.length - 1 ? "border-b border-gray-100" : ""}`}>
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-semibold text-indigo-700">{s.name.split(" ").pop()[0]}</div>
-                                <div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900">{s.name}</p><p className="text-xs text-gray-400">{s.email}</p></div>
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">{s.id}</span>
-                                <button onClick={() => setShowRemoveStudent(s.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 cursor-pointer" title="Remove"><UserMinus className="w-4 h-4" /></button>
+                    {/* ── Class Access Control Panel ─────────────────────────── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+                        {/* Header */}
+                        <div className="px-5 py-4 border-b border-gray-100 bg-emerald-50/30">
+                            <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                <Users className="w-4 h-4 text-emerald-600" />
+                                Class Access Control
+                            </h2>
+                        </div>
+
+                        <div className="p-5 space-y-5">
+                            {/* ── Class Code Copy ──────────────────────────────── */}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                    Class Code
+                                </label>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-mono text-lg font-bold text-gray-800 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg select-all">
+                                        {classCode}
+                                    </span>
+                                    <button
+                                        onClick={handleCopyCode}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-colors cursor-pointer"
+                                    >
+                                        {copied ? (
+                                            <>
+                                                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                                                <span className="text-emerald-600">Copied!</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy className="w-4 h-4" />
+                                                Copy Code
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1.5">
+                                    Share this code with students so they can join the class.
+                                </p>
                             </div>
-                        ))}
+
+                            {/* ── Divider ──────────────────────────────────────── */}
+                            <div className="border-t border-gray-100" />
+
+                            {/* ── Class Password ───────────────────────────────── */}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                    Class Password
+                                </label>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex-1 max-w-xs">
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            value={classPassword}
+                                            onChange={(e) => setClassPassword(e.target.value)}
+                                            placeholder="Enter a secure password"
+                                            className="w-full px-4 py-2.5 pr-10 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 transition-colors"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword((prev) => !prev)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                                            tabIndex={-1}
+                                        >
+                                            {showPassword ? (
+                                                <EyeOff className="w-4 h-4" />
+                                            ) : (
+                                                <Eye className="w-4 h-4" />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={handleSavePassword}
+                                        disabled={savingPassword || !classPassword.trim()}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed"
+                                    >
+                                        {savingPassword ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="w-4 h-4" />
+                                                Save Password
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                                {passwordSuccess && (
+                                    <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600">
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        {passwordSuccess}
+                                    </p>
+                                )}
+                                <p className="text-xs text-gray-400 mt-1.5">
+                                    Students must enter this password to join the class.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Student Management ──────────────────────────────────── */}
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-700">
+                            Enrolled Students ({students.length})
+                        </h3>
+                        <button onClick={() => setShowAddStudent(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition-colors cursor-pointer">
+                            <UserPlus className="w-4 h-4" /> Add Student
+                        </button>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-gray-200">
+                        {students.length === 0 ? (
+                            <div className="p-8 text-center text-gray-400">
+                                <Users className="w-8 h-8 mx-auto mb-2" />
+                                <p className="text-sm">No students enrolled yet.</p>
+                            </div>
+                        ) : (
+                            students.map((s, idx) => (
+                                <div key={s.id} className={`flex items-center gap-3 px-5 py-3.5 ${idx < students.length - 1 ? "border-b border-gray-100" : ""}`}>
+                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-semibold text-indigo-700">{s.name.split(" ").pop()[0]}</div>
+                                    <div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900">{s.name}</p><p className="text-xs text-gray-400">{s.email}</p></div>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">{s.id}</span>
+                                    <button onClick={() => setShowRemoveStudent(s.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 cursor-pointer" title="Remove"><UserMinus className="w-4 h-4" /></button>
+                                </div>
+                            ))
+                        )}
                     </div>
 
                     {showAddStudent && (

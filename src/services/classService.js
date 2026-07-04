@@ -161,4 +161,32 @@ export const updateClassPassword = async (classId, password) => {
     return response.data;
 };
 
+/**
+ * Join a class as a student using a code and optional password.
+ * @param {string} code - The class code
+ * @param {string} [password] - The class join password
+ */
+export const joinClass = async (code, password) => {
+    await classApi.post("/api/v1/classes/student/join", { code, password });
+};
+
+/**
+ * Fetch all classes for the logged-in student.
+ * @returns {Promise<Array>} Array of class objects
+ */
+export const fetchStudentClasses = async () => {
+    const response = await classApi.get("/api/v1/classes/student/all");
+    return response.data;
+};
+
+/**
+ * Fetch all members of a class (teacher view).
+ * @param {number|string} classId - The class ID
+ * @returns {Promise<Array>} Array of member objects
+ */
+export const fetchClassMembers = async (classId) => {
+    const response = await classApi.get(`/api/v1/classes/teacher/${classId}/members`);
+    return response.data;
+};
+
 export default classApi;

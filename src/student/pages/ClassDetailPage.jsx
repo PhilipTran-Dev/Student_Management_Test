@@ -99,7 +99,8 @@ export default function ClassDetailPage() {
     const { classId } = useParams();
     const userRole = localStorage.getItem("role") || "STUDENT";
     const [activeTab, setActiveTab] = useState("overview");
-    const [classInfo, setClassInfo] = useState(null);
+    const [classDetail, setClassDetail] = useState(null);
+    const [classDetailLoading, setClassDetailLoading] = useState(false);
 
     // ── Announcements state ──────────────────────────────────────────────
     const [announcements, setAnnouncements] = useState([]);
@@ -119,9 +120,10 @@ export default function ClassDetailPage() {
 
     // ── Fetch class metadata ─────────────────────────────────────────────
     const loadClassInfo = useCallback(async () => {
+        setClassDetailLoading(true);
         try {
             const data = await fetchClassById(classId);
-            setClassInfo(data || null);
+            setClassDetail(data || null);
         } catch (err) {
             const msg =
                 err.response?.data?.message ||
@@ -129,7 +131,9 @@ export default function ClassDetailPage() {
                 err.message ||
                 "Failed to load class details.";
             console.error(msg);
-            setClassInfo(null);
+            setClassDetail(null);
+        } finally {
+            setClassDetailLoading(false);
         }
     }, [classId]);
 
@@ -215,17 +219,11 @@ export default function ClassDetailPage() {
         }
     }, [activeTab, loadStudents]);
 
-    const classTitle = classInfo?.name || "Class Details";
-    const instructorName = classInfo?.teacherName || classInfo?.instructorName || "Instructor";
-    const instructorEmail = classInfo?.teacherEmail || classInfo?.instructorEmail || "";
-    const courseName = classInfo?.courseName || classInfo?.course?.name || "Course details";
-    const semesterName = classInfo?.semesterName || classInfo?.semester?.name || "Semester details";
-    const recentAnnouncements = [...announcements]
-        .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
-        .slice(0, 2);
-    const recentMaterials = [...materials]
-        .sort((a, b) => new Date(b.createdAt || b.uploadDate || 0) - new Date(a.createdAt || a.uploadDate || 0))
-        .slice(0, 2);
+    const classTitle = classDetail?.name || "Class Details";
+    const instructorName = classDetail?.teacherName || classDetail?.instructorName || "Instructor";
+    const instructorEmail = classDetail?.teacherEmail || classDetail?.instructorEmail || "";
+    const courseName = classDetail?.courseName || classDetail?.course?.name || classDetail?.courseId || "Course details";
+    const semesterName = classDetail?.semesterName || classDetail?.semester?.name || classDetail?.semesterId || "Semester details";
 
     // ── Download material via presigned URL ───────────────────────────────
     const handleDownload = async (materialId) => {
@@ -261,7 +259,7 @@ export default function ClassDetailPage() {
                     <div className="flex-1 min-w-0">
                         <h1 className="text-2xl font-bold text-gray-900">{classTitle}</h1>
                         <p className="text-sm text-gray-500 mt-1">
-                            Instructor: {instructorName}
+                            Instructor: {classDetailLoading ? "Loading..." : instructorName}
                         </p>
                         <p className="text-sm text-gray-400 mt-0.5">
                             {enrolledStudents.length} student{enrolledStudents.length !== 1 ? "s" : ""} enrolled
@@ -287,7 +285,7 @@ export default function ClassDetailPage() {
 
             {/* ===== Overview Tab ===== */}
             {activeTab === "overview" && (
-                <div className="space-y-6">
+                <div className="w-full flex flex-col gap-6">
                     {/* ── A. Classroom Hero Banner ─────────────────────────────── */}
                     <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-6 md:p-8 shadow-md relative overflow-hidden">
                         {/* Decorative circles */}
@@ -301,11 +299,11 @@ export default function ClassDetailPage() {
                                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-blue-100">
                                     <span className="flex items-center gap-1.5">
                                         <BookOpen className="w-4 h-4" />
-                                        {courseName}
+                                        Course: {courseName}
                                     </span>
                                     <span className="flex items-center gap-1.5">
                                         <Calendar className="w-4 h-4" />
-                                        {semesterName}
+                                        Semester: {semesterName}
                                     </span>
                                 </div>
                             </div>
@@ -346,9 +344,9 @@ export default function ClassDetailPage() {
                             </button>
                         </div>
                         <div className="divide-y divide-gray-100">
-                            {recentAnnouncements.length === 0 ? (
+                            {announcements.slice(0, 2).length === 0 ? (
                                 <div className="px-5 py-6 text-sm text-gray-500">No announcements available yet.</div>
-                            ) : recentAnnouncements.map((item) => {
+                            ) : announcements.slice(0, 2).map((item) => {
                                 const authorName = item.authorName || item.author || instructorName;
                                 const initials = getInitials(authorName);
                                 const avatarColor = getAvatarColor(authorName);
@@ -387,9 +385,9 @@ export default function ClassDetailPage() {
                             </button>
                         </div>
                         <div className="divide-y divide-gray-100">
-                            {recentMaterials.length === 0 ? (
+                            {materials.slice(0, 2).length === 0 ? (
                                 <div className="px-5 py-6 text-sm text-gray-500">No materials uploaded yet.</div>
-                            ) : recentMaterials.map((material) => {
+                            ) : materials.slice(0, 2).map((material) => {
                                 const fileName = material.fileName || material.name || "Untitled";
                                 const fileSize = material.fileSize || material.size;
                                 const iconType = getFileIconType(fileName);

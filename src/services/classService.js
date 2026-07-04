@@ -54,7 +54,7 @@ export const fetchClasses = async () => {
  * @returns {Promise<Object>} The class object with code, name, etc.
  */
 export const fetchClassById = async (classId) => {
-    const response = await classApi.get(`/api/v1/classes/teacher/${classId}`);
+    const response = await classApi.get(`/api/v1/classes/${classId}`);
     return response.data;
 };
 
@@ -167,7 +167,11 @@ export const updateClassPassword = async (classId, password) => {
  * @param {string} [password] - The class join password
  */
 export const joinClass = async (code, password) => {
-    await classApi.post("/api/v1/classes/student/join", { code, password });
+    const response = await axiosInstance.post("/api/v1/classes/student/join", {
+        code: code.trim(),
+        password: password ? password.trim() : null
+    });
+    return response.data;
 };
 
 /**
@@ -185,7 +189,7 @@ export const fetchStudentClasses = async () => {
  * @returns {Promise<Array>} Array of member objects
  */
 export const fetchClassMembers = async (classId) => {
-    const response = await classApi.get(`/api/v1/classes/teacher/${classId}/members`);
+    const response = await classApi.get(`/api/v1/classes/${classId}/members`);
     return response.data;
 };
 

@@ -9,6 +9,7 @@ import {
     fetchAnnouncements,
     fetchMaterials,
     fetchClassMembers,
+    fetchClassById,
     getDownloadUrl,
 } from "../../services/classService";
 
@@ -98,6 +99,7 @@ export default function ClassDetailPage() {
     const { classId } = useParams();
     const userRole = localStorage.getItem("role") || "STUDENT";
     const [activeTab, setActiveTab] = useState("overview");
+    const [classInfo, setClassInfo] = useState(null);
 
     // ── Announcements state ──────────────────────────────────────────────
     const [announcements, setAnnouncements] = useState([]);
@@ -114,6 +116,26 @@ export default function ClassDetailPage() {
     const [enrolledStudents, setEnrolledStudents] = useState([]);
     const [studentsLoading, setStudentsLoading] = useState(false);
     const [studentsError, setStudentsError] = useState(null);
+
+    // ── Fetch class metadata ─────────────────────────────────────────────
+    const loadClassInfo = useCallback(async () => {
+        try {
+            const data = await fetchClassById(classId);
+            setClassInfo(data || null);
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.response?.data?.error ||
+                err.message ||
+                "Failed to load class details.";
+            console.error(msg);
+            setClassInfo(null);
+        }
+    }, [classId]);
+
+    useEffect(() => {
+        loadClassInfo();
+    }, [loadClassInfo]);
 
     // ── Fetch announcements ──────────────────────────────────────────────
     const loadAnnouncements = useCallback(async () => {
@@ -136,7 +158,7 @@ export default function ClassDetailPage() {
     }, [classId, userRole]);
 
     useEffect(() => {
-        if (activeTab === "announcements") {
+        if (activeTab === "overview" || activeTab === "announcements") {
             loadAnnouncements();
         }
     }, [activeTab, loadAnnouncements]);
@@ -162,7 +184,7 @@ export default function ClassDetailPage() {
     }, [classId, userRole]);
 
     useEffect(() => {
-        if (activeTab === "materials") {
+        if (activeTab === "overview" || activeTab === "materials") {
             loadMaterials();
         }
     }, [activeTab, loadMaterials]);
@@ -188,10 +210,22 @@ export default function ClassDetailPage() {
     }, [classId]);
 
     useEffect(() => {
-        if (activeTab === "members") {
+        if (activeTab === "overview" || activeTab === "members") {
             loadStudents();
         }
     }, [activeTab, loadStudents]);
+
+    const classTitle = classInfo?.name || "Class Details";
+    const instructorName = classInfo?.teacherName || classInfo?.instructorName || "Instructor";
+    const instructorEmail = classInfo?.teacherEmail || classInfo?.instructorEmail || "";
+    const courseName = classInfo?.courseName || classInfo?.course?.name || "Course details";
+    const semesterName = classInfo?.semesterName || classInfo?.semester?.name || "Semester details";
+    const recentAnnouncements = [...announcements]
+        .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
+        .slice(0, 2);
+    const recentMaterials = [...materials]
+        .sort((a, b) => new Date(b.createdAt || b.uploadDate || 0) - new Date(a.createdAt || a.uploadDate || 0))
+        .slice(0, 2);
 
     // ── Download material via presigned URL ───────────────────────────────
     const handleDownload = async (materialId) => {
@@ -225,9 +259,9 @@ export default function ClassDetailPage() {
                         <BookOpen className="w-7 h-7 text-indigo-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-2xl font-bold text-gray-900">Class Details</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">{classTitle}</h1>
                         <p className="text-sm text-gray-500 mt-1">
-                            Class ID: {classId}
+                            Instructor: {instructorName}
                         </p>
                         <p className="text-sm text-gray-400 mt-0.5">
                             {enrolledStudents.length} student{enrolledStudents.length !== 1 ? "s" : ""} enrolled
@@ -254,34 +288,127 @@ export default function ClassDetailPage() {
             {/* ===== Overview Tab ===== */}
             {activeTab === "overview" && (
                 <div className="space-y-6">
-                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                            <BookOpen className="w-5 h-5 text-indigo-500" />
-                            Course Overview
-                        </h2>
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                            Welcome to your class. Check the announcements tab for updates from your instructor and the materials tab for course documents.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-lg bg-indigo-50">
-                                <UserCheck className="w-5 h-5 text-indigo-600" />
+                    {/* ── A. Classroom Hero Banner ─────────────────────────────── */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-6 md:p-8 shadow-md relative overflow-hidden">
+                        {/* Decorative circles */}
+                        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
+                        <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full bg-white/5" />
+                        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                                    {classTitle}
+                                </h1>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-blue-100">
+                                    <span className="flex items-center gap-1.5">
+                                        <BookOpen className="w-4 h-4" />
+                                        {courseName}
+                                    </span>
+                                    <span className="flex items-center gap-1.5">
+                                        <Calendar className="w-4 h-4" />
+                                        {semesterName}
+                                    </span>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-semibold text-gray-900">{enrolledStudents.length}</p>
-                                <p className="text-xs text-gray-500">Enrolled Students</p>
+                            {/* Teacher Badge — no class code / copy actions */}
+                            <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 md:py-2.5">
+                                <div className="w-10 h-10 rounded-full bg-amber-400 text-amber-900 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                                    {getInitials(instructorName)}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-white truncate">{instructorName}</p>
+                                    {instructorEmail ? (
+                                        <a
+                                            href={`mailto:${instructorEmail}`}
+                                            className="text-[11px] text-blue-200 hover:text-white transition-colors truncate block"
+                                        >
+                                            {instructorEmail}
+                                        </a>
+                                    ) : (
+                                        <span className="text-[11px] text-blue-200 truncate block">Instructor contact pending</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-lg bg-amber-50">
-                                <GraduationCap className="w-5 h-5 text-amber-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-semibold text-gray-900">{classId}</p>
-                                <p className="text-xs text-gray-500">Class ID</p>
-                            </div>
+                    </div>
+
+                    {/* ── B. Latest Announcements Widget ───────────────────────── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                <Megaphone className="w-4 h-4 text-indigo-600" />
+                                Latest Announcements
+                            </h3>
+                            <button
+                                onClick={() => setActiveTab("announcements")}
+                                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline transition-colors cursor-pointer"
+                            >
+                                View All Announcements &rarr;
+                            </button>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                            {recentAnnouncements.length === 0 ? (
+                                <div className="px-5 py-6 text-sm text-gray-500">No announcements available yet.</div>
+                            ) : recentAnnouncements.map((item) => {
+                                const authorName = item.authorName || item.author || instructorName;
+                                const initials = getInitials(authorName);
+                                const avatarColor = getAvatarColor(authorName);
+                                return (
+                                    <div key={item.id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-start gap-3">
+                                            <div className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5`}>
+                                                {initials}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-gray-900">{item.title || "Announcement"}</p>
+                                                <p className="text-xs text-gray-600 mt-1 leading-relaxed line-clamp-2">
+                                                    {item.content || "No details provided."}
+                                                </p>
+                                                <p className="text-[11px] text-gray-400 mt-2">{formatDate(item.createdAt || item.date)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* ── C. Recently Uploaded Materials Widget ────────────────── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-indigo-600" />
+                                Recently Uploaded Materials
+                            </h3>
+                            <button
+                                onClick={() => setActiveTab("materials")}
+                                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline transition-colors cursor-pointer"
+                            >
+                                View All Materials &rarr;
+                            </button>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                            {recentMaterials.length === 0 ? (
+                                <div className="px-5 py-6 text-sm text-gray-500">No materials uploaded yet.</div>
+                            ) : recentMaterials.map((material) => {
+                                const fileName = material.fileName || material.name || "Untitled";
+                                const fileSize = material.fileSize || material.size;
+                                const iconType = getFileIconType(fileName);
+                                const materialId = material.id || material.fileId;
+                                return (
+                                    <div key={materialId} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors group" onClick={() => handleDownload(materialId)}>
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${getFileIconColor(iconType)}`}>
+                                            {getFileIconLabel(iconType)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 truncate">{fileName}</p>
+                                            <p className="text-[11px] text-gray-400 mt-0.5">{fileSize ? formatFileSize(fileSize) : "Download available"}</p>
+                                        </div>
+                                        <div className="flex-shrink-0 p-1.5 rounded-lg text-gray-300 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors cursor-pointer">
+                                            <Download className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

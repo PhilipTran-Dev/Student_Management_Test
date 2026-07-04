@@ -5,6 +5,17 @@ import {
 } from "lucide-react";
 import { joinClass, fetchStudentClasses } from "../../services/classService";
 
+// ── Course & Semester lookup tables (numeric ID → human-readable label) ──
+const COURSES = [
+    { id: 101, name: "Java Backend Development" },
+    { id: 102, name: "Distributed Systems" },
+];
+
+const SEMESTERS = [
+    { id: 1, name: "Semester 1 (Fall 2026)" },
+    { id: 2, name: "Semester 2 (Spring 2027)" },
+];
+
 const COLOR_MAP = {
     indigo: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", badge: "bg-indigo-100 text-indigo-700" },
     emerald: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", badge: "bg-emerald-100 text-emerald-700" },
@@ -44,15 +55,26 @@ export default function ClassListPage() {
         loadClasses();
     }, []);
 
-    const semesters = [...new Set(classes.map((c) => c.semester || c.semesterCode || ""))].filter(Boolean).sort();
+    // ── Resolve semester display names for filter ───────────────────────
+    const resolvedSemesters = classes
+        .map((c) => {
+            const sem = SEMESTERS.find((s) => s.id === c.semesterId);
+            return sem ? sem.name : "";
+        })
+        .filter(Boolean)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .sort();
 
     const filtered = classes.filter((c) => {
         const q = searchQuery.trim().toLowerCase();
         const name = c.name || c.className || "";
-        const code = c.code || c.classCode || "";
         const instructor = c.teacherName || c.instructor || "";
-        const matchSearch = !q || name.toLowerCase().includes(q) || code.toLowerCase().includes(q) || instructor.toLowerCase().includes(q);
-        const matchSemester = semesterFilter === "all" || (c.semester || c.semesterCode) === semesterFilter;
+        const course = COURSES.find((co) => co.id === c.courseId);
+        const courseName = course ? course.name.toLowerCase() : "";
+        const matchSearch = !q || name.toLowerCase().includes(q) || instructor.toLowerCase().includes(q) || courseName.includes(q);
+        const sem = SEMESTERS.find((s) => s.id === c.semesterId);
+        const semName = sem ? sem.name : "";
+        const matchSemester = semesterFilter === "all" || semName === semesterFilter;
         return matchSearch && matchSemester;
     });
 
@@ -105,8 +127,14 @@ export default function ClassListPage() {
     // ── Helper to get display fields ────────────────────────────────────
     const getClassId = (c) => c.id || c.classId;
     const getClassName = (c) => c.name || c.className || "Untitled Class";
-    const getCourseTitle = (c) => c.courseTitle || c.subject || c.courseName || "";
-    const getSemester = (c) => c.semester || c.semesterCode || "";
+    const getCourseName = (c) => {
+        const course = COURSES.find((co) => co.id === c.courseId);
+        return course ? course.name : c.courseTitle || c.subject || c.courseName || "";
+    };
+    const getSemesterName = (c) => {
+        const sem = SEMESTERS.find((s) => s.id === c.semesterId);
+        return sem ? sem.name : c.semester || c.semesterCode || "";
+    };
     const getTeacherName = (c) => c.teacherName || c.instructor || "";
     const getTeacherEmail = (c) => c.teacherEmail || "";
 
@@ -134,7 +162,7 @@ export default function ClassListPage() {
                     <input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by course name, code, or instructor..."
+                        placeholder="Search by course name or instructor..."
                         className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-indigo-400"
                     />
                 </div>
@@ -146,7 +174,7 @@ export default function ClassListPage() {
                         className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-indigo-400 appearance-none bg-white"
                     >
                         <option value="all">All Semesters</option>
-                        {semesters.map((s) => (
+                        {resolvedSemesters.map((s) => (
                             <option key={s} value={s}>{s}</option>
                         ))}
                     </select>
@@ -181,7 +209,10 @@ export default function ClassListPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filtered.map((cls) => {
                         const cid = getClassId(cls);
-                        const colors = COLOR_MAP.indigo;
+                        const courseName = getCourseName(cls);
+                        const semesterName = getSemesterName(cls);
+                        const teacherName = getTeacherName(cls);
+                        const teacherEmail = getTeacherEmail(cls);
                         return (
                             <div
                                 key={cid}
@@ -192,26 +223,26 @@ export default function ClassListPage() {
                                         <BookOpen className="w-5 h-5 text-indigo-600" />
                                     </div>
                                     <h3 className="font-semibold text-gray-900 text-sm mb-1">{getClassName(cls)}</h3>
-                                    {getCourseTitle(cls) && (
-                                        <p className="text-xs text-gray-500 mb-2">{getCourseTitle(cls)}</p>
+                                    {courseName && (
+                                        <p className="text-xs text-gray-500 mb-3">{courseName}</p>
                                     )}
                                     <div className="space-y-1.5 text-xs text-gray-500">
-                                        {getTeacherName(cls) && (
+                                        {teacherName && (
                                             <span className="flex items-center gap-1">
                                                 <UserCheck className="w-3.5 h-3.5 flex-shrink-0" />
-                                                {getTeacherName(cls)}
+                                                {teacherName}
                                             </span>
                                         )}
-                                        {getTeacherEmail(cls) && (
+                                        {teacherEmail && (
                                             <span className="flex items-center gap-1">
                                                 <Users className="w-3.5 h-3.5 flex-shrink-0" />
-                                                {getTeacherEmail(cls)}
+                                                {teacherEmail}
                                             </span>
                                         )}
-                                        {getSemester(cls) && (
+                                        {semesterName && (
                                             <span className="flex items-center gap-1">
                                                 <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                                                {getSemester(cls)}
+                                                {semesterName}
                                             </span>
                                         )}
                                     </div>

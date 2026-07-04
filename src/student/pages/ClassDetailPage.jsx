@@ -8,35 +8,9 @@ import {
 import {
     fetchAnnouncements,
     fetchMaterials,
+    fetchClassMembers,
     getDownloadUrl,
 } from "../../services/classService";
-
-const MOCK_CLASS = {
-    id: "CS101",
-    name: "Introduction to Programming",
-    code: "CS101-2026-S1",
-    instructor: "Dr. Tran Van B",
-    semester: "Spring 2026",
-    description: "This course provides a comprehensive introduction to programming concepts using Python. Topics include variables, data types, control structures, functions, data structures, and basic algorithms. No prior programming experience is required.",
-    schedules: [
-        { day: "Monday", time: "09:00 - 10:30", room: "Hall A - 201" },
-        { day: "Wednesday", time: "09:00 - 10:30", room: "Lab B - 105" },
-        { day: "Friday", time: "14:00 - 15:00", room: "Hall A - 201" },
-    ],
-    instructors: [
-        { id: "T001", name: "Dr. Tran Van B", email: "tvb@university.edu.vn", specialty: "Computer Science" },
-        { id: "T002", name: "Prof. Le Thi C", email: "ltc@university.edu.vn", specialty: "Programming Languages" },
-    ],
-    classmates: [
-        { id: "S001", name: "Nguyen Van A", email: "a.nguyen@student.edu.vn" },
-        { id: "S002", name: "Tran Thi B", email: "b.tran@student.edu.vn" },
-        { id: "S003", name: "Le Van C", email: "c.le@student.edu.vn" },
-        { id: "S004", name: "Pham Thi D", email: "d.pham@student.edu.vn" },
-        { id: "S005", name: "Hoang Van E", email: "e.hoang@student.edu.vn" },
-        { id: "S006", name: "Nguyen Thi F", email: "f.nguyen@student.edu.vn" },
-        { id: "S007", name: "Tran Van G", email: "g.tran@student.edu.vn" },
-    ],
-};
 
 const TABS = [
     { key: "overview", label: "Overview", icon: BookOpen },
@@ -136,6 +110,11 @@ export default function ClassDetailPage() {
     const [matError, setMatError] = useState(null);
     const [downloadingId, setDownloadingId] = useState(null);
 
+    // ── Enrolled students state (live from API) ──────────────────────────
+    const [enrolledStudents, setEnrolledStudents] = useState([]);
+    const [studentsLoading, setStudentsLoading] = useState(false);
+    const [studentsError, setStudentsError] = useState(null);
+
     // ── Fetch announcements ──────────────────────────────────────────────
     const loadAnnouncements = useCallback(async () => {
         setAnnLoading(true);
@@ -188,6 +167,32 @@ export default function ClassDetailPage() {
         }
     }, [activeTab, loadMaterials]);
 
+    // ── Fetch enrolled students via API ──────────────────────────────────
+    const loadStudents = useCallback(async () => {
+        setStudentsLoading(true);
+        setStudentsError(null);
+        try {
+            const data = await fetchClassMembers(classId);
+            setEnrolledStudents(Array.isArray(data) ? data : []);
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                err.response?.data?.error ||
+                err.message ||
+                "Failed to load students.";
+            setStudentsError(msg);
+            setEnrolledStudents([]);
+        } finally {
+            setStudentsLoading(false);
+        }
+    }, [classId]);
+
+    useEffect(() => {
+        if (activeTab === "members") {
+            loadStudents();
+        }
+    }, [activeTab, loadStudents]);
+
     // ── Download material via presigned URL ───────────────────────────────
     const handleDownload = async (materialId) => {
         setDownloadingId(materialId);
@@ -205,8 +210,6 @@ export default function ClassDetailPage() {
         }
     };
 
-    const cls = MOCK_CLASS;
-
     return (
         <div>
             {/* Back link */}
@@ -222,12 +225,12 @@ export default function ClassDetailPage() {
                         <BookOpen className="w-7 h-7 text-indigo-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-2xl font-bold text-gray-900">{cls.name}</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">Class Details</h1>
                         <p className="text-sm text-gray-500 mt-1">
-                            {cls.code} &middot; {cls.semester} &middot; Instructor: {cls.instructor}
+                            Class ID: {classId}
                         </p>
                         <p className="text-sm text-gray-400 mt-0.5">
-                            {cls.classmates.length + cls.instructors.length} members enrolled
+                            {enrolledStudents.length} student{enrolledStudents.length !== 1 ? "s" : ""} enrolled
                         </p>
                     </div>
                 </div>
@@ -254,50 +257,21 @@ export default function ClassDetailPage() {
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                             <BookOpen className="w-5 h-5 text-indigo-500" />
-                            Course Description
+                            Course Overview
                         </h2>
-                        <p className="text-sm text-gray-600 leading-relaxed">{cls.description}</p>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                            Welcome to your class. Check the announcements tab for updates from your instructor and the materials tab for course documents.
+                        </p>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                            <Clock className="w-5 h-5 text-indigo-500" />
-                            Class Schedule
-                        </h2>
-                        <div className="space-y-3">
-                            {cls.schedules.map((schedule, idx) => (
-                                <div key={idx} className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 border border-gray-100">
-                                    <div className="w-20 text-sm font-semibold text-gray-900">{schedule.day}</div>
-                                    <div className="flex-1 text-sm text-gray-600 flex items-center gap-1">
-                                        <Clock className="w-3.5 h-3.5 text-gray-400" />
-                                        {schedule.time}
-                                    </div>
-                                    <div className="text-sm text-gray-500 flex items-center gap-1">
-                                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                                        {schedule.room}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
                             <div className="p-2.5 rounded-lg bg-indigo-50">
                                 <UserCheck className="w-5 h-5 text-indigo-600" />
                             </div>
                             <div>
-                                <p className="text-sm font-semibold text-gray-900">{cls.instructors.length}</p>
-                                <p className="text-xs text-gray-500">Instructors</p>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-lg bg-emerald-50">
-                                <Users className="w-5 h-5 text-emerald-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-semibold text-gray-900">{cls.classmates.length}</p>
-                                <p className="text-xs text-gray-500">Classmates</p>
+                                <p className="text-sm font-semibold text-gray-900">{enrolledStudents.length}</p>
+                                <p className="text-xs text-gray-500">Enrolled Students</p>
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
@@ -305,65 +279,89 @@ export default function ClassDetailPage() {
                                 <GraduationCap className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
-                                <p className="text-sm font-semibold text-gray-900">{cls.semester}</p>
-                                <p className="text-xs text-gray-500">Semester</p>
+                                <p className="text-sm font-semibold text-gray-900">{classId}</p>
+                                <p className="text-xs text-gray-500">Class ID</p>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ===== Class Members Tab ===== */}
+            {/* ===== Class Members Tab (Live from API) ===== */}
             {activeTab === "members" && (
                 <div className="space-y-6">
-                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100 bg-amber-50/30">
-                            <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                                <GraduationCap className="w-4 h-4 text-amber-600" />
-                                Instructors ({cls.instructors.length})
-                            </h2>
-                        </div>
-                        <div className="divide-y divide-gray-100">
-                            {cls.instructors.map((inst) => (
-                                <div key={inst.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors">
-                                    <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-sm font-semibold text-amber-700">
-                                        {getInitials(inst.name)}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900">{inst.name}</p>
-                                        <p className="text-xs text-gray-400">{inst.email}</p>
-                                    </div>
-                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700">
-                                        {inst.specialty}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100 bg-indigo-50/30">
                             <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                                 <Users className="w-4 h-4 text-indigo-600" />
-                                Classmates / Students ({cls.classmates.length})
+                                Enrolled Students ({enrolledStudents.length})
                             </h2>
                         </div>
-                        <div className="divide-y divide-gray-100">
-                            {cls.classmates.map((student) => (
-                                <div key={student.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors">
-                                    <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-semibold text-indigo-700">
-                                        {getInitials(student.name)}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900">{student.name}</p>
-                                        <p className="text-xs text-gray-400">{student.email}</p>
-                                    </div>
-                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
-                                        Student
-                                    </span>
+
+                        {studentsLoading ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                                <p className="text-sm">Loading students...</p>
+                            </div>
+                        ) : studentsError ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <AlertCircle className="w-10 h-10 text-red-300 mb-3" />
+                                <p className="text-sm font-medium text-gray-900 mb-1">Failed to load students</p>
+                                <p className="text-xs text-gray-500 mb-3">{studentsError}</p>
+                                <button
+                                    onClick={loadStudents}
+                                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors cursor-pointer"
+                                >
+                                    Retry
+                                </button>
+                            </div>
+                        ) : enrolledStudents.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-50 flex items-center justify-center">
+                                    <Users className="w-8 h-8 text-gray-300" />
                                 </div>
-                            ))}
-                        </div>
+                                <p className="text-sm font-medium text-gray-500">
+                                    No students have joined this class yet.
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto leading-relaxed">
+                                    Student rosters will appear here once classmates enroll through the class invite.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {enrolledStudents.map((student, idx) => {
+                                    const fullName = student.fullName || student.name || "Unknown Student";
+                                    const studentId = student.studentId || student.id || "—";
+                                    const className = student.className || student.section || "—";
+                                    const email = student.email || "—";
+                                    const initials = getInitials(fullName);
+                                    const avatarColor = getAvatarColor(fullName);
+
+                                    return (
+                                        <div
+                                            key={student.id || student.studentId || idx}
+                                            className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors"
+                                        >
+                                            <div className={`w-9 h-9 rounded-full ${avatarColor} flex items-center justify-center text-sm font-semibold text-white`}>
+                                                {initials}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900">{fullName}</p>
+                                                <p className="text-xs text-gray-400">{email}</p>
+                                            </div>
+                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
+                                                {studentId}
+                                            </span>
+                                            {className && className !== "—" && (
+                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700">
+                                                    {className}
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

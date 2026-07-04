@@ -167,7 +167,7 @@ export const updateClassPassword = async (classId, password) => {
  * @param {string} [password] - The class join password
  */
 export const joinClass = async (code, password) => {
-    const response = await axiosInstance.post("/api/v1/classes/student/join", {
+    const response = await classApi.post("/api/v1/classes/student/join", {
         code: code.trim(),
         password: password ? password.trim() : null
     });

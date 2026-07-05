@@ -16,8 +16,7 @@ jobs:
 
       - name: Ghi đè tự động file docker-compose.yml tối giản cho FE
         run: |
-          echo 'version: "3.8"
-          services:
+          echo 'services:
             frontend:
               build:
                 context: .
@@ -27,12 +26,22 @@ jobs:
               ports:
                 - "5173:80"' > docker-compose.yml
 
+          # Mẹo nhỏ: Mình đã bỏ dòng version: "3.8" cũ để xóa cái cảnh báo (warning) lúc nãy của bạn luôn nhé.
 
       - name: Clean old Container avoid conflict
         run: |
-          docker rm -f classroom-frontend-app || true
+          # 1. Tắt cụm compose hiện tại nếu có
+          docker compose down || true
+          
+          # 2. Quét tận gốc xem còn container nào "cứng đầu" đang chiếm cổng 5173 không và ép xóa
+          TARGET_PORT_CONTAINER=$(docker ps -q --filter publish=5173)
+          if [ ! -z "$TARGET_PORT_CONTAINER" ]; then
+            echo "Phát hiện container $TARGET_PORT_CONTAINER đang chiếm cổng 5173. Tiến hành xóa..."
+            docker rm -f $TARGET_PORT_CONTAINER
+          fi
 
       - name: run Container Docker by Virtual Docker
         run: |
+          # Build ứng dụng và truyền chính xác biến môi trường backend vào
           docker compose build --build-arg VITE_API_URL="http://192.168.66.133:8081" frontend
           docker compose up -d frontend

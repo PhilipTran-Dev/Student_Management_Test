@@ -87,6 +87,7 @@ const formatDate = (dateStr) => {
     }
 };
 
+
 const formatFileSize = (bytes) => {
     if (!bytes && bytes !== 0) return "Unknown size";
     if (bytes === 0) return "0 B";
@@ -117,6 +118,7 @@ export default function ClassDetailPage() {
     const [enrolledStudents, setEnrolledStudents] = useState([]);
     const [studentsLoading, setStudentsLoading] = useState(false);
     const [studentsError, setStudentsError] = useState(null);
+
 
     // ── Fetch class metadata ─────────────────────────────────────────────
     const loadClassInfo = useCallback(async () => {

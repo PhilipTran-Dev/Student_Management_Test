@@ -34,4 +34,5 @@ jobs:
 
       - name: run Container Docker by Virtual Docker
         run: |
-          docker compose up -d --build frontend
+          docker compose build --build-arg VITE_API_URL="http://192.168.66.133:8081" frontend
+          docker compose up -d frontend

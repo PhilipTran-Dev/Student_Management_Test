@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const CLASS_SERVICE_URL = "http://localhost:8082";
+const BASE_IP = import.meta.env.VITE_API_URL || "http://localhost";
+const CLASS_SERVICE_URL = BASE_IP.includes("localhost") ? "http://localhost:8082" : `${BASE_IP}:8082`;
+const USER_SERVICE_URL = BASE_IP.includes("localhost") ? "http://localhost:8081" : `${BASE_IP}:8081`;
 
 const classApi = axios.create({
     baseURL: CLASS_SERVICE_URL,
@@ -23,7 +25,7 @@ classApi.interceptors.response.use(
                 const refreshToken = localStorage.getItem("refreshToken");
                 if (refreshToken) {
                     const res = await axios.post(
-                        `${import.meta.env.VITE_API_URL}/api/v1/auth/refresh`,
+                        `${USER_SERVICE_URL}/api/v1/auth/refresh`,
                         { refreshToken }
                     );
                     const { token: newToken } = res.data;
@@ -31,8 +33,10 @@ classApi.interceptors.response.use(
                     error.config.headers.Authorization = `Bearer ${newToken}`;
                     return axios(error.config);
                 }
-            } catch {
+            } catch (err) {
                 // refresh failed — force logout
+                localStorage.clear();
+                window.location.href = "/login";
             }
         }
         return Promise.reject(error);

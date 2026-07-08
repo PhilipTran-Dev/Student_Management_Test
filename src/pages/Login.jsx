@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { userApi } from "../services/api";
 import { Mail, Lock, Eye, EyeOff, LogIn, GraduationCap, Briefcase, Shield } from "lucide-react";
 
 export default function Login() {
@@ -49,8 +49,8 @@ export default function Login() {
                 password: formData.password,
             };
 
-            const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/v1/auth/login/${activeRole.toLowerCase()}`,
+            const response = await userApi.post(
+                `/v1/auth/login/${activeRole.toLowerCase()}`,
                 loginPayload
             );
 

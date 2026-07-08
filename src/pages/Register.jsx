@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { userApi } from "../services/api";
 import {
     User,
     Mail,
@@ -149,15 +149,13 @@ export default function Register() {
                 class: formData.class,
             };
 
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
-            await axios.post(`${API_URL}/api/v1/auth/student/register`, payload);
+            await userApi.post("/v1/auth/student/register", payload);
 
             alert("Account created successfully! Redirecting to login page...");
             navigate("/student/login");
         } catch (err) {
             if (err.code === "ERR_NETWORK") {
-                const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
-                setServerError(`Backend authentication server is offline. Please check connection to ${API_URL}`);
+                setServerError("Backend authentication server is offline. Please check the server connection.");
             } else if (err.response?.data?.message) {
                 setServerError(err.response.data.message);
             } else {

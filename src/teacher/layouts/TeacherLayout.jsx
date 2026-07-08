@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 export default function TeacherLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -13,7 +11,7 @@ export default function TeacherLayout() {
         const refreshToken = localStorage.getItem("refreshToken");
         try {
             if (refreshToken) {
-                await axios.post(`${API_URL}/api/v1/auth/logout`, { refreshToken });
+                await userApi.post("/v1/auth/logout", { refreshToken });
             }
         } catch (err) {
             console.error("Logout API error:", err.response?.data?.message || err.message);

@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import { User, Mail, Phone, Calendar, Lock, Eye, EyeOff, Save } from "lucide-react";
-
-const API_URL = import.meta.env.VITE_API_URL;
-const headers = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
 export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState("profile");
@@ -27,7 +24,7 @@ export default function ProfilePage() {
         (async () => {
             setLoadingProfile(true);
             try {
-                const res = await axios.get(`${API_URL}/api/v1/student/profile`, { headers: headers() });
+                const res = await userApi.get("/v1/student/profile");
                 setProfile(res.data);
                 setProfileSnapshot(res.data);
             } catch (err) {
@@ -71,7 +68,7 @@ export default function ProfilePage() {
                 dateOfBirth: profile.dateOfBirth,
                 gender: profile.gender,
             };
-            const res = await axios.put(`${API_URL}/api/v1/student/profile`, payload, { headers: headers() });
+            const res = await userApi.put("/v1/student/profile", payload);
             setProfile(res.data);
             setProfileSnapshot(res.data);
             setSuccessMsg("Profile updated successfully!");
@@ -108,11 +105,11 @@ export default function ProfilePage() {
         if (!validatePassword()) return;
         setLoading(true);
         try {
-            await axios.put(`${API_URL}/api/v1/student/profile/change-password`, {
+            await userApi.put("/v1/student/profile/change-password", {
                 currentPassword: passwordForm.currentPassword,
                 newPassword: passwordForm.newPassword,
                 confirmPassword: passwordForm.confirmPassword,
-            }, { headers: headers() });
+            });
             setSuccessMsg("Password updated successfully!");
             setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
         } catch (err) {

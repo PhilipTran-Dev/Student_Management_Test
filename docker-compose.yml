@@ -9,5 +9,9 @@ services:
     restart: always
     ports:
       - "5173:80"
-    environment:
-      - VITE_API_URL=http://192.168.66.133
+    networks:
+      - classroom-network
+
+networks:
+  classroom-network:
+    external: true

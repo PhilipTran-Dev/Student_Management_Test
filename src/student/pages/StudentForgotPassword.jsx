@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import { Mail, ArrowLeft } from "lucide-react";
 
 export default function StudentForgotPassword() {
@@ -27,8 +27,8 @@ export default function StudentForgotPassword() {
 
         setLoading(true);
         try {
-            await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/v1/auth/student/forgot-password`,
+            await userApi.post(
+                "/v1/auth/student/forgot-password",
                 { email }
             );
             navigate("/student/verifyotp", { state: { email } });

@@ -1,11 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import { User, GraduationCap, X } from "lucide-react";
-
-const API = {
-    baseURL: `${import.meta.env.VITE_API_URL}/api/v1`,
-    headers: () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` }),
-};
 
 const FACULTY_MAJOR_MAP = {
     "Computer Science & Engineering": ["Software Engineering", "Information Technology", "Artificial Intelligence", "Data Science"],
@@ -137,10 +132,10 @@ function UserFormModal({ isOpen, mode = "create", userToEdit = null, onClose = (
         setLoading(true);
         try {
             const url = mode === "edit" && userToEdit?.id
-                ? `${API.baseURL}/admin/users/${userToEdit.id}`
-                : `${API.baseURL}/admin/users`;
-            const method = mode === "edit" ? axios.put : axios.post;
-            const response = await method(url, payload, { headers: API.headers() });
+                ? `/api/v1/admin/users/${userToEdit.id}`
+                : "/api/v1/admin/users";
+            const method = mode === "edit" ? userApi.put : userApi.post;
+            const response = await method(url, payload);
             onSaveSuccess(response.data);
         } catch (err) {
             setError(err.response?.data?.message || "Failed to save user.");

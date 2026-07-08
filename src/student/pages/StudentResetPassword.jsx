@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import { Lock, ShieldCheck, ArrowLeft } from "lucide-react";
 
 export default function StudentResetPassword() {
@@ -48,8 +48,8 @@ export default function StudentResetPassword() {
         setLoading(true);
 
         try {
-            await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/v1/auth/student/reset-password`,
+            await userApi.post(
+                "/v1/auth/student/reset-password",
                 { email, newPassword, resetToken }
             );
             setSuccess("Your password has been reset successfully.");

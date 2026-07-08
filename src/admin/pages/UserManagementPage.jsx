@@ -1,13 +1,8 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import { Plus, X, Trash2, Lock, Unlock, Key, Search, MoreHorizontal, Pencil } from "lucide-react";
 import UserFormModal from "../components/UserFormModal";
 import Avatar from "../components/Avatar";
-
-const API = {
-    baseURL: `${import.meta.env.VITE_API_URL}/api/v1`,
-    headers: () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` }),
-};
 
 export default function UserManagementPage() {
     const [users, setUsers] = useState([]);
@@ -34,20 +29,22 @@ export default function UserManagementPage() {
 
     // ---------- Build query url based on filter ----------
     const buildUrl = () => {
-        const url = new URL(`${API.baseURL}/admin/users`);
-        if (filter === "student") url.searchParams.set("role", "STUDENT");
-        if (filter === "teacher") url.searchParams.set("role", "TEACHER");
-        if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
-        if (selectedMajor) url.searchParams.set("major", selectedMajor);
-        if (selectedClass) url.searchParams.set("className", selectedClass);
-        return url.toString();
+        // Build relative URL path — the userApi baseURL (/api) will prefix it
+        let path = "/v1/admin/users?";
+        const params = [];
+        if (filter === "student") params.push("role=STUDENT");
+        if (filter === "teacher") params.push("role=TEACHER");
+        if (searchTerm.trim()) params.push(`search=${encodeURIComponent(searchTerm.trim())}`);
+        if (selectedMajor) params.push(`major=${encodeURIComponent(selectedMajor)}`);
+        if (selectedClass) params.push(`className=${encodeURIComponent(selectedClass)}`);
+        return path + params.join("&");
     };
 
     // ---------- Fetch users ----------
     const fetchUsers = async () => {
         setFetching(true);
         try {
-            const res = await axios.get(buildUrl(), { headers: API.headers() });
+            const res = await userApi.get(buildUrl());
             setUsers(res.data);
             setServerError("");
         } catch (err) {
@@ -91,7 +88,7 @@ export default function UserManagementPage() {
     // ---------- Toggle Lock ----------
     const handleToggleLock = async (id) => {
         try {
-            await axios.patch(`${API.baseURL}/admin/users/${id}/toggle-status`, {}, { headers: API.headers() });
+            await userApi.patch(`/v1/admin/users/${id}/toggle-status`, {});
             showToast("User status toggled successfully!");
             fetchUsers();
         } catch (err) {
@@ -108,10 +105,9 @@ export default function UserManagementPage() {
             return;
         }
         try {
-            await axios.patch(
-                `${API.baseURL}/admin/users/${user.id}/reset-password`,
-                { new_password: newPassword },
-                { headers: API.headers() }
+            await userApi.patch(
+                `/v1/admin/users/${user.id}/reset-password`,
+                { new_password: newPassword }
             );
             showToast("Password reset successfully!");
         } catch (err) {
@@ -124,7 +120,7 @@ export default function UserManagementPage() {
         const confirmed = window.confirm("Are you absolutely sure you want to permanently delete this user account?");
         if (!confirmed) return;
         try {
-            await axios.delete(`${API.baseURL}/admin/users/${id}`, { headers: API.headers() });
+            await userApi.delete(`/v1/admin/users/${id}`);
             setUsers((p) => p.filter((u) => u.id !== id));
             showToast("User deleted successfully!");
         } catch (err) {

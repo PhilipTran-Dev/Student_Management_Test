@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import { Bell, Menu, User, LogOut, ChevronDown, Settings } from "lucide-react";
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Navbar({ onMenuToggle, notificationCount = 0 }) {
     const [profileOpen, setProfileOpen] = useState(false);
@@ -25,7 +23,7 @@ export default function Navbar({ onMenuToggle, notificationCount = 0 }) {
         const refreshToken = localStorage.getItem("refreshToken");
         try {
             if (refreshToken) {
-                await axios.post(`${API_URL}/api/v1/auth/logout`, { refreshToken });
+                await userApi.post("/v1/auth/logout", { refreshToken });
             }
         } catch (err) {
             console.error("Logout API error:", err.response?.data?.message || err.message);

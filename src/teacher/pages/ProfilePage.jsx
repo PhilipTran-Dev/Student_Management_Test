@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import { User, Lock, Eye, EyeOff, Save, School, Mail, Phone, BookOpen, IdCard } from "lucide-react";
-
-const API_URL = import.meta.env.VITE_API_URL;
-const headers = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
 export default function ProfilePage() {
     const [tab, setTab] = useState("profile");
@@ -22,7 +19,7 @@ export default function ProfilePage() {
         (async () => {
             setLoadingProfile(true);
             try {
-                const res = await axios.get(`${API_URL}/api/v1/teacher/profile`, { headers: headers() });
+                const res = await userApi.get("/v1/teacher/profile");
                 setProfile(res.data);
                 setProfileSnapshot(res.data);
             } catch (err) {
@@ -52,12 +49,12 @@ export default function ProfilePage() {
         setErrors(ne); if (Object.keys(ne).length) return;
         setLoading(true);
         try {
-            const res = await axios.put(`${API_URL}/api/v1/teacher/profile`, {
+            const res = await userApi.put("/v1/teacher/profile", {
                 fullName: profile.fullName,
                 phoneNumber: profile.phoneNumber,
                 dateOfBirth: profile.dateOfBirth,
                 gender: profile.gender,
-            }, { headers: headers() });
+            });
             setProfile(res.data);
             setProfileSnapshot(res.data);
             setSuccess("Profile updated successfully!");
@@ -77,11 +74,11 @@ export default function ProfilePage() {
         setErrors(ne); if (Object.keys(ne).length) return;
         setLoading(true);
         try {
-            await axios.put(`${API_URL}/api/v1/teacher/profile/change-password`, {
+            await userApi.put("/v1/teacher/profile/change-password", {
                 currentPassword: pwForm.current,
                 newPassword: pwForm.new,
                 confirmPassword: pwForm.confirm,
-            }, { headers: headers() });
+            });
             setSuccess("Password updated successfully!");
             setPwForm({ current: "", new: "", confirm: "" });
         } catch (err) { setServerError(err.response?.data?.message || "Failed."); }

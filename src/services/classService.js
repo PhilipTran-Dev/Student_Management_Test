@@ -1,54 +1,11 @@
-import axios from "axios";
-
-const BASE_IP = import.meta.env.VITE_API_URL || "http://localhost";
-const CLASS_SERVICE_URL = BASE_IP.includes("localhost") ? "http://localhost:8082" : `${BASE_IP}:8082`;
-const USER_SERVICE_URL = BASE_IP.includes("localhost") ? "http://localhost:8081" : `${BASE_IP}:8081`;
-
-const classApi = axios.create({
-    baseURL: CLASS_SERVICE_URL,
-});
-
-classApi.interceptors.request.use((config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
-
-classApi.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        if (error.response?.status === 401 && !error.config._retry) {
-            error.config._retry = true;
-            try {
-                const refreshToken = localStorage.getItem("refreshToken");
-                if (refreshToken) {
-                    const res = await axios.post(
-                        `${USER_SERVICE_URL}/api/v1/auth/refresh`,
-                        { refreshToken }
-                    );
-                    const { token: newToken } = res.data;
-                    localStorage.setItem("token", newToken);
-                    error.config.headers.Authorization = `Bearer ${newToken}`;
-                    return axios(error.config);
-                }
-            } catch (err) {
-                // refresh failed — force logout
-                localStorage.clear();
-                window.location.href = "/login";
-            }
-        }
-        return Promise.reject(error);
-    }
-);
+import { classApi } from "./api";
 
 /**
  * Fetch all classes for the logged-in teacher.
  * @returns {Promise<Array>} Array of class objects
  */
 export const fetchClasses = async () => {
-    const response = await classApi.get("/api/v1/classes/teacher/all");
+    const response = await classApi.get("/v1/classes/teacher/all");
     return response.data;
 };
 
@@ -58,7 +15,7 @@ export const fetchClasses = async () => {
  * @returns {Promise<Object>} The class object with code, name, etc.
  */
 export const fetchClassById = async (classId) => {
-    const response = await classApi.get(`/api/v1/classes/${classId}`);
+    const response = await classApi.get(`/v1/classes/${classId}`);
     return response.data;
 };
 
@@ -69,7 +26,7 @@ export const fetchClassById = async (classId) => {
  */
 export const createClass = async (payload) => {
     const response = await classApi.post(
-        "/api/v1/classes/teacher/create",
+        "/v1/classes/teacher/create",
         payload
     );
     return response.data;
@@ -83,7 +40,7 @@ export const createClass = async (payload) => {
  */
 export const fetchAnnouncements = async (classId, role) => {
     const response = await classApi.get(
-        `/api/v1/classes/${role.toLowerCase()}/${classId}/announcements`
+        `/v1/classes/${role.toLowerCase()}/${classId}/announcements`
     );
     return response.data;
 };
@@ -96,7 +53,7 @@ export const fetchAnnouncements = async (classId, role) => {
  */
 export const createAnnouncement = async (classId, payload) => {
     const response = await classApi.post(
-        `/api/v1/classes/teacher/${classId}/announcements`,
+        `/v1/classes/teacher/${classId}/announcements`,
         payload
     );
     return response.data;
@@ -107,7 +64,7 @@ export const createAnnouncement = async (classId, payload) => {
  * @param {number|string} id - The announcement ID
  */
 export const deleteAnnouncement = async (id) => {
-    await classApi.delete(`/api/v1/classes/teacher/announcements/${id}`);
+    await classApi.delete(`/v1/classes/teacher/announcements/${id}`);
 };
 
 /**
@@ -117,7 +74,7 @@ export const deleteAnnouncement = async (id) => {
  * @returns {Promise<Array>} Array of material objects
  */
 export const fetchMaterials = async (classId, role) => {
-    const response = await classApi.get(`/api/v1/classes/${role.toLowerCase()}/${classId}/materials`);
+    const response = await classApi.get(`/v1/classes/${role.toLowerCase()}/${classId}/materials`);
     return response.data;
 };
 
@@ -130,7 +87,7 @@ export const fetchMaterials = async (classId, role) => {
 export const uploadMaterial = async (classId, file) => {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await classApi.post(`/api/v1/classes/teacher/${classId}/materials/upload`, formData, {
+    const response = await classApi.post(`/v1/classes/teacher/${classId}/materials/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
@@ -142,7 +99,7 @@ export const uploadMaterial = async (classId, file) => {
  * @returns {Promise<string>} The temporary download URL
  */
 export const getDownloadUrl = async (fileId) => {
-    const response = await classApi.get(`/api/v1/classes/materials/${fileId}/download`);
+    const response = await classApi.get(`/v1/classes/materials/${fileId}/download`);
     return response.data.downloadUrl;
 };
 
@@ -151,7 +108,7 @@ export const getDownloadUrl = async (fileId) => {
  * @param {number|string} fileId - The material/file ID
  */
 export const deleteMaterial = async (fileId) => {
-    await classApi.delete(`/api/v1/classes/teacher/materials/${fileId}`);
+    await classApi.delete(`/v1/classes/teacher/materials/${fileId}`);
 };
 
 /**
@@ -161,7 +118,7 @@ export const deleteMaterial = async (fileId) => {
  * @returns {Promise<Object>} The updated class object
  */
 export const updateClassPassword = async (classId, password) => {
-    const response = await classApi.put(`/api/v1/classes/teacher/${classId}/password`, { password });
+    const response = await classApi.put(`/v1/classes/teacher/${classId}/password`, { password });
     return response.data;
 };
 
@@ -171,7 +128,7 @@ export const updateClassPassword = async (classId, password) => {
  * @param {string} [password] - The class join password
  */
 export const joinClass = async (code, password) => {
-    const response = await classApi.post("/api/v1/classes/student/join", {
+    const response = await classApi.post("/v1/classes/student/join", {
         code: code.trim(),
         password: password ? password.trim() : null
     });
@@ -183,7 +140,7 @@ export const joinClass = async (code, password) => {
  * @returns {Promise<Array>} Array of class objects
  */
 export const fetchStudentClasses = async () => {
-    const response = await classApi.get("/api/v1/classes/student/all");
+    const response = await classApi.get("/v1/classes/student/all");
     return response.data;
 };
 
@@ -193,8 +150,6 @@ export const fetchStudentClasses = async () => {
  * @returns {Promise<Array>} Array of member objects
  */
 export const fetchClassMembers = async (classId) => {
-    const response = await classApi.get(`/api/v1/classes/${classId}/members`);
+    const response = await classApi.get(`/v1/classes/${classId}/members`);
     return response.data;
 };
-
-export default classApi;

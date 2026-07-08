@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import { userApi } from "../../services/api";
 import { ShieldCheck } from "lucide-react";
 
 export default function StudentVerifyOtp() {
@@ -75,8 +75,8 @@ export default function StudentVerifyOtp() {
 
         setLoading(true);
         try {
-            const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/v1/auth/student/verify-otp`,
+            const response = await userApi.post(
+                "/v1/auth/student/verify-otp",
                 { email, otp: code }
             );
 
@@ -102,7 +102,7 @@ export default function StudentVerifyOtp() {
         setLoading(true);
 
         try {
-            await axios.post(`${import.meta.env.VITE_API_URL}/api/v1/auth/student/forgot-password`, { email });
+            await userApi.post("/v1/auth/student/forgot-password", { email });
             setMessage("A new code has been sent to your email.");
         } catch (err) {
             setError(err.response?.data?.message || "Unable to resend code. Please try again.");

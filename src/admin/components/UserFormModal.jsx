@@ -132,8 +132,8 @@ function UserFormModal({ isOpen, mode = "create", userToEdit = null, onClose = (
         setLoading(true);
         try {
             const url = mode === "edit" && userToEdit?.id
-                ? `/api/v1/admin/users/${userToEdit.id}`
-                : "/api/v1/admin/users";
+                ? `/v1/admin/users/${userToEdit.id}`
+                : "/v1/admin/users";
             const method = mode === "edit" ? userApi.put : userApi.post;
             const response = await method(url, payload);
             onSaveSuccess(response.data);

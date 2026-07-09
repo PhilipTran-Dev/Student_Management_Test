@@ -14,12 +14,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8081',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
       '/class-api': {
         target: 'http://localhost:8082',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/class-api/, ''),
+        rewrite: (path) => path.replace(/^\/class-api/, '/api'),
       },
     },
   },

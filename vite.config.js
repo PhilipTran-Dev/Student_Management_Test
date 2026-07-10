@@ -9,14 +9,15 @@ export default defineConfig({
     tailwindcss()
   ],
   server: {
+    host: true,
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8081',
+        target: 'http://user-service:8081',
         changeOrigin: true,
       },
       '/class-api': {
-        target: 'http://localhost:8082',
+        target: 'http://class-service:8082',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/class-api/, '/api'),
       },

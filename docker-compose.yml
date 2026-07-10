@@ -8,7 +8,7 @@ services:
     container_name: classroom-frontend-app
     restart: always
     ports:
-      - "5173:5173"
+      - "5173:80"
     stdin_open: true
     tty: true
     networks:
@@ -17,4 +17,4 @@ services:
 networks:
   classroom-network:
     external: true
-    name: student_managementbe_test_classroom-network
+    name: student_managementbe_classroom-network

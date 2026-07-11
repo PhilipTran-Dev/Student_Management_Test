@@ -1,5 +1,43 @@
 import { classApi } from "./api";
 
+export const fetchAllCourses = async () => {
+    const response = await classApi.get("/v1/courses");
+    return response.data;
+};
+
+export const createCourse = async (data) => {
+    const response = await classApi.post("/v1/admin/courses", data);
+    return response.data;
+};
+
+export const updateCourse = async (id, data) => {
+    const response = await classApi.put(`/v1/admin/courses/${id}`, data);
+    return response.data;
+};
+
+export const deleteCourse = async (id) => {
+    await classApi.delete(`/v1/admin/courses/${id}`);
+};
+
+export const fetchAllSemesters = async () => {
+    const response = await classApi.get("/v1/semesters");
+    return response.data;
+};
+
+export const createSemester = async (data) => {
+    const response = await classApi.post("/v1/admin/semesters", data);
+    return response.data;
+};
+
+export const updateSemester = async (id, data) => {
+    const response = await classApi.put(`/v1/admin/semesters/${id}`, data);
+    return response.data;
+};
+
+export const deleteSemester = async (id) => {
+    await classApi.delete(`/v1/admin/semesters/${id}`);
+};
+
 /**
  * Fetch all classes for the logged-in teacher.
  * @returns {Promise<Array>} Array of class objects

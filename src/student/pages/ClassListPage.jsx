@@ -3,18 +3,7 @@ import { Link } from "react-router-dom";
 import {
     BookOpen, Plus, X, LogOut, Users, UserCheck, AlertTriangle, Eye, EyeOff, Calendar, Search, Filter, CheckCircle
 } from "lucide-react";
-import { joinClass, fetchStudentClasses } from "../../services/classService";
-
-// ── Course & Semester lookup tables (numeric ID → human-readable label) ──
-const COURSES = [
-    { id: 101, name: "Java Backend Development" },
-    { id: 102, name: "Distributed Systems" },
-];
-
-const SEMESTERS = [
-    { id: 1, name: "Semester 1 (Fall 2026)" },
-    { id: 2, name: "Semester 2 (Spring 2027)" },
-];
+import { joinClass, fetchStudentClasses, fetchAllCourses, fetchAllSemesters } from "../../services/classService";
 
 const COLOR_MAP = {
     indigo: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", badge: "bg-indigo-100 text-indigo-700" },
@@ -37,6 +26,8 @@ export default function ClassListPage() {
     const [joinLoading, setJoinLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [semesterFilter, setSemesterFilter] = useState("all");
+    const [courses, setCourses] = useState([]);
+    const [semesters, setSemesters] = useState([]);
 
     // ── Fetch student classes on mount ──────────────────────────────────
     const loadClasses = async () => {
@@ -55,10 +46,25 @@ export default function ClassListPage() {
         loadClasses();
     }, []);
 
+    useEffect(() => {
+        const loadLookups = async () => {
+            try {
+                const [courseData, semesterData] = await Promise.all([fetchAllCourses(), fetchAllSemesters()]);
+                setCourses(Array.isArray(courseData) ? courseData : []);
+                setSemesters(Array.isArray(semesterData) ? semesterData : []);
+            } catch {
+                setCourses([]);
+                setSemesters([]);
+            }
+        };
+
+        loadLookups();
+    }, []);
+
     // ── Resolve semester display names for filter ───────────────────────
     const resolvedSemesters = classes
         .map((c) => {
-            const sem = SEMESTERS.find((s) => s.id === c.semesterId);
+            const sem = semesters.find((s) => String(s.id) === String(c.semesterId));
             return sem ? sem.name : "";
         })
         .filter(Boolean)
@@ -69,10 +75,10 @@ export default function ClassListPage() {
         const q = searchQuery.trim().toLowerCase();
         const name = c.name || c.className || "";
         const instructor = c.teacherName || c.instructor || "";
-        const course = COURSES.find((co) => co.id === c.courseId);
-        const courseName = course ? course.name.toLowerCase() : "";
+        const course = courses.find((co) => String(co.id) === String(c.courseId));
+        const courseName = course ? (course.name || "").toLowerCase() : "";
         const matchSearch = !q || name.toLowerCase().includes(q) || instructor.toLowerCase().includes(q) || courseName.includes(q);
-        const sem = SEMESTERS.find((s) => s.id === c.semesterId);
+        const sem = semesters.find((s) => String(s.id) === String(c.semesterId));
         const semName = sem ? sem.name : "";
         const matchSemester = semesterFilter === "all" || semName === semesterFilter;
         return matchSearch && matchSemester;
@@ -128,11 +134,11 @@ export default function ClassListPage() {
     const getClassId = (c) => c.id || c.classId;
     const getClassName = (c) => c.name || c.className || "Untitled Class";
     const getCourseName = (c) => {
-        const course = COURSES.find((co) => co.id === c.courseId);
+        const course = courses.find((co) => String(co.id) === String(c.courseId));
         return course ? course.name : c.courseTitle || c.subject || c.courseName || "";
     };
     const getSemesterName = (c) => {
-        const sem = SEMESTERS.find((s) => s.id === c.semesterId);
+        const sem = semesters.find((s) => String(s.id) === String(c.semesterId));
         return sem ? sem.name : c.semester || c.semesterCode || "";
     };
     const getTeacherName = (c) => c.teacherName || c.instructor || "";

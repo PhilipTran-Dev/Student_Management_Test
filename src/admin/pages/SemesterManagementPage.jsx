@@ -1,12 +1,6 @@
-import { useState } from "react";
-import { Calendar, Plus, X, Edit3, CheckCircle, Clock, AlertTriangle, Search } from "lucide-react";
-
-const MOCK_SEMESTERS = [
-    { id: "S01", name: "Fall 2025", code: "F2025", startDate: "Sep 1, 2025", endDate: "Dec 31, 2025", status: "completed" },
-    { id: "S02", name: "Spring 2026", code: "S2026", startDate: "Jan 15, 2026", endDate: "May 31, 2026", status: "active" },
-    { id: "S03", name: "Summer 2026", code: "SU2026", startDate: "Jun 10, 2026", endDate: "Aug 31, 2026", status: "upcoming" },
-    { id: "S04", name: "Fall 2026", code: "F2026", startDate: "Sep 1, 2026", endDate: "Dec 31, 2026", status: "upcoming" },
-];
+import { useEffect, useState } from "react";
+import { Calendar, Plus, X, Edit3, CheckCircle, Clock, AlertTriangle, Search, Trash2 } from "lucide-react";
+import { createSemester, deleteSemester, fetchAllSemesters, updateSemester } from "../../services/classService";
 
 const STATUS_CONFIG = {
     active: { label: "Active", bg: "bg-emerald-50 text-emerald-600", dot: "bg-emerald-500", icon: CheckCircle },
@@ -14,17 +8,76 @@ const STATUS_CONFIG = {
     completed: { label: "Completed", bg: "bg-zinc-100 text-zinc-500", dot: "bg-zinc-400", icon: CheckCircle },
 };
 
+const emptyForm = { name: "", code: "", startDate: "", endDate: "", status: "upcoming" };
+
+const getErrorMessage = (error) =>
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    "Something went wrong while contacting the server.";
+
+const toInputDate = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
+const formatDateLabel = (value) => {
+    if (!value) return "";
+    try {
+        return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+        return value;
+    }
+};
+
 export default function SemesterManagementPage() {
-    const [semesters, setSemesters] = useState(MOCK_SEMESTERS);
+    const [semesters, setSemesters] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [showCreate, setShowCreate] = useState(false);
     const [showEdit, setShowEdit] = useState(null);
-    const [form, setForm] = useState({ name: "", code: "", startDate: "", endDate: "", status: "upcoming" });
+    const [showDelete, setShowDelete] = useState(null);
+    const [form, setForm] = useState(emptyForm);
     const [formError, setFormError] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [loadError, setLoadError] = useState("");
+
+    useEffect(() => {
+        let active = true;
+        const loadSemesters = async () => {
+            setLoading(true);
+            setLoadError("");
+            try {
+                const data = await fetchAllSemesters();
+                if (active) {
+                    setSemesters(Array.isArray(data) ? data : []);
+                }
+            } catch (error) {
+                if (active) {
+                    setSemesters([]);
+                    setLoadError(getErrorMessage(error));
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadSemesters();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const filtered = semesters.filter((s) =>
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.code.toLowerCase().includes(searchTerm.toLowerCase())
+        (s.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.code || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const validate = () => {
@@ -35,26 +88,67 @@ export default function SemesterManagementPage() {
 
     const handleCreate = async (e) => {
         e.preventDefault();
-        const err = validate(); if (err) { setFormError(err); return; }
-        setLoading(true);
+        const err = validate();
+        if (err) {
+            setFormError(err);
+            return;
+        }
+
+        setSaving(true);
         try {
-            await new Promise((r) => setTimeout(r, 600));
-            const fmt = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-            setSemesters((p) => [...p, { id: `S${Date.now()}`, name: form.name, code: form.code.toUpperCase(), startDate: fmt(form.startDate), endDate: fmt(form.endDate), status: form.status }]);
-            setShowCreate(false); setForm({ name: "", code: "", startDate: "", endDate: "", status: "upcoming" });
-        } finally { setLoading(false); }
+            const payload = {
+                name: form.name.trim(),
+                code: form.code.trim().toUpperCase(),
+                startDate: form.startDate,
+                endDate: form.endDate,
+                status: form.status,
+            };
+            const createdSemester = await createSemester(payload);
+            setSemesters((prev) => [...prev, createdSemester || { id: Date.now(), ...payload }]);
+            setShowCreate(false);
+            setForm(emptyForm);
+        } catch (error) {
+            setFormError(getErrorMessage(error));
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleUpdate = async (e) => {
         e.preventDefault();
-        const err = validate(); if (err) { setFormError(err); return; }
-        setLoading(true);
+        const err = validate();
+        if (err) {
+            setFormError(err);
+            return;
+        }
+
+        setSaving(true);
         try {
-            await new Promise((r) => setTimeout(r, 600));
-            const fmt = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-            setSemesters((p) => p.map((s) => s.id === showEdit.id ? { ...s, name: form.name, code: form.code.toUpperCase(), startDate: fmt(form.startDate), endDate: fmt(form.endDate), status: form.status } : s));
+            const payload = {
+                name: form.name.trim(),
+                code: form.code.trim().toUpperCase(),
+                startDate: form.startDate,
+                endDate: form.endDate,
+                status: form.status,
+            };
+            const updatedSemester = await updateSemester(showEdit.id, payload);
+            setSemesters((prev) => prev.map((s) => (s.id === showEdit.id ? updatedSemester || { ...s, ...payload } : s)));
             setShowEdit(null);
-        } finally { setLoading(false); }
+        } catch (error) {
+            setFormError(getErrorMessage(error));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        try {
+            await deleteSemester(id);
+            setSemesters((prev) => prev.filter((s) => s.id !== id));
+            setShowDelete(null);
+        } catch (error) {
+            setFormError(getErrorMessage(error));
+        }
     };
 
     return (
@@ -64,7 +158,7 @@ export default function SemesterManagementPage() {
                     <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Semesters</h1>
                     <p className="text-sm text-zinc-400 mt-1">Academic terms and schedules</p>
                 </div>
-                <button onClick={() => { setShowCreate(true); setForm({ name: "", code: "", startDate: "", endDate: "", status: "upcoming" }); }} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-medium text-sm transition-all duration-200 shadow-lg shadow-indigo-200/50 cursor-pointer">
+                <button onClick={() => { setShowCreate(true); setForm(emptyForm); }} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-medium text-sm transition-all duration-200 shadow-lg shadow-indigo-200/50 cursor-pointer">
                     <Plus className="w-4 h-4" /> Add Semester
                 </button>
             </div>
@@ -74,22 +168,24 @@ export default function SemesterManagementPage() {
                 <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search semesters..." className="w-full pl-9 pr-4 py-2 rounded-xl border border-zinc-200 text-sm outline-none transition-all duration-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 placeholder:text-zinc-300" />
             </div>
 
-            {/* Semester Cards */}
-            {filtered.length === 0 ? (
+            {loadError && (
+                <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{loadError}</div>
+            )}
+
+            {loading ? (
+                <div className="text-center py-16 text-zinc-400">Loading semesters...</div>
+            ) : filtered.length === 0 ? (
                 <div className="text-center py-16 text-zinc-300"><Calendar className="w-10 h-10 mx-auto mb-3 opacity-50" /><p className="text-sm font-medium">No semesters found</p></div>
             ) : (
                 <div className="space-y-3">
                     {filtered.map((s) => {
                         const cfg = STATUS_CONFIG[s.status] || STATUS_CONFIG.upcoming;
-                        const Icon = cfg.icon;
                         return (
                             <div key={s.id} className="group bg-white rounded-2xl border border-zinc-100 p-5 hover:shadow-lg hover:shadow-zinc-200/30 transition-all duration-300 relative">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.status === "active" ? "bg-emerald-50" : s.status === "upcoming" ? "bg-amber-50" : "bg-zinc-50"
-                                            }`}>
-                                            <Calendar className={`w-5 h-5 ${s.status === "active" ? "text-emerald-500" : s.status === "upcoming" ? "text-amber-500" : "text-zinc-400"
-                                                }`} />
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.status === "active" ? "bg-emerald-50" : s.status === "upcoming" ? "bg-amber-50" : "bg-zinc-50"}`}>
+                                            <Calendar className={`w-5 h-5 ${s.status === "active" ? "text-emerald-500" : s.status === "upcoming" ? "text-amber-500" : "text-zinc-400"}`} />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2.5">
@@ -100,11 +196,14 @@ export default function SemesterManagementPage() {
                                                 </span>
                                             </div>
                                             <p className="text-xs text-zinc-400 mt-0.5">
-                                                <span className="font-mono font-medium text-zinc-500">{s.code}</span> &middot; {s.startDate} &rarr; {s.endDate}
+                                                <span className="font-mono font-medium text-zinc-500">{s.code}</span> &middot; {formatDateLabel(s.startDate)} &rarr; {formatDateLabel(s.endDate)}
                                             </p>
                                         </div>
                                     </div>
-                                    <button onClick={() => { setShowEdit(s); setForm({ name: s.name, code: s.code, startDate: "", endDate: "", status: s.status }); }} className="p-2 rounded-lg text-zinc-300 hover:text-indigo-500 hover:bg-indigo-50 opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer"><Edit3 className="w-4 h-4" /></button>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                        <button onClick={() => { setShowEdit(s); setForm({ name: s.name || "", code: s.code || "", startDate: toInputDate(s.startDate), endDate: toInputDate(s.endDate), status: s.status || "upcoming" }); }} className="p-2 rounded-lg text-zinc-300 hover:text-indigo-500 hover:bg-indigo-50 cursor-pointer"><Edit3 className="w-4 h-4" /></button>
+                                        <button onClick={() => setShowDelete(s.id)} className="p-2 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -112,7 +211,6 @@ export default function SemesterManagementPage() {
                 </div>
             )}
 
-            {/* Create/Edit Modal */}
             {(showCreate || showEdit) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm" onClick={() => { setShowCreate(false); setShowEdit(null); }} />
@@ -134,18 +232,32 @@ export default function SemesterManagementPage() {
                             <div><label className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1.5 block">Status</label>
                                 <div className="flex gap-2">
                                     {["upcoming", "active", "completed"].map((st) => (
-                                        <label key={st} className={`flex-1 flex items-center justify-center px-4 py-2.5 rounded-xl border text-sm cursor-pointer transition-all duration-200 capitalize ${form.status === st ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300"
-                                            }`}>
+                                        <label key={st} className={`flex-1 flex items-center justify-center px-4 py-2.5 rounded-xl border text-sm cursor-pointer transition-all duration-200 capitalize ${form.status === st ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300"}`}>
                                             <input type="radio" name="status" value={st} checked={form.status === st} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))} className="sr-only" />
                                             {st}
                                         </label>
                                     ))}
                                 </div>
                             </div>
-                            <button type="submit" disabled={loading} className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 disabled:opacity-60 text-white font-medium text-sm transition-all duration-200 shadow-lg shadow-indigo-200/50 cursor-pointer">
-                                {loading ? "Saving..." : showEdit ? "Save Changes" : "Create Semester"}
+                            <button type="submit" disabled={saving} className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 disabled:opacity-60 text-white font-medium text-sm transition-all duration-200 shadow-lg shadow-indigo-200/50 cursor-pointer">
+                                {saving ? "Saving..." : showEdit ? "Save Changes" : "Create Semester"}
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {showDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowDelete(null)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl p-7 w-full max-w-sm z-10 border border-zinc-100 text-center">
+                        <div className="mx-auto w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center mb-4"><AlertTriangle className="w-5 h-5 text-red-500" /></div>
+                        <h2 className="text-lg font-semibold text-zinc-900 mb-1">Delete Semester?</h2>
+                        <p className="text-sm text-zinc-400 mb-6">Permanently remove this semester.</p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setShowDelete(null)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-50 text-sm font-medium transition-all duration-200 cursor-pointer">Cancel</button>
+                            <button onClick={() => handleDelete(showDelete)} className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-all duration-200 shadow-lg shadow-red-200/50 cursor-pointer">Delete</button>
+                        </div>
                     </div>
                 </div>
             )}

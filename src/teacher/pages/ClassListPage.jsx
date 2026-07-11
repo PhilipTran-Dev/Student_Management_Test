@@ -17,18 +17,7 @@ import {
     Mail,
 } from "lucide-react";
 import CreateClassModal from "../components/CreateClassModal";
-import { fetchClasses } from "../../services/classService";
-
-// ── Mock reference data for ID-to-Name mapping ───────────────────────────
-const COURSES = [
-    { id: 101, name: "Java Backend Development" },
-    { id: 102, name: "Distributed Systems" },
-];
-
-const SEMESTERS = [
-    { id: 1, name: "Semester 1 (Fall 2026)" },
-    { id: 2, name: "Semester 2 (Spring 2027)" },
-];
+import { fetchAllCourses, fetchAllSemesters, fetchClasses } from "../../services/classService";
 
 const COLORS = [
     "emerald",
@@ -65,6 +54,8 @@ export default function ClassListPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [semesterFilter, setSemesterFilter] = useState("all");
     const [facultyFilter, setFacultyFilter] = useState("all");
+    const [courses, setCourses] = useState([]);
+    const [semesters, setSemesters] = useState([]);
 
     // ── Fetch classes on mount ──────────────────────────────────────────
     const loadClasses = useCallback(async () => {
@@ -90,13 +81,28 @@ export default function ClassListPage() {
         loadClasses();
     }, [loadClasses]);
 
+    useEffect(() => {
+        const loadLookups = async () => {
+            try {
+                const [courseData, semesterData] = await Promise.all([fetchAllCourses(), fetchAllSemesters()]);
+                setCourses(Array.isArray(courseData) ? courseData : []);
+                setSemesters(Array.isArray(semesterData) ? semesterData : []);
+            } catch {
+                setCourses([]);
+                setSemesters([]);
+            }
+        };
+
+        loadLookups();
+    }, []);
+
     // ── Derived filter data ─────────────────────────────────────────────
     const semesterNames = useMemo(
         () => [...new Set(classes.map((c) => {
-            const s = SEMESTERS.find((sem) => sem.id === c.semesterId);
+            const s = semesters.find((sem) => String(sem.id) === String(c.semesterId));
             return s ? s.name : "";
         }))].filter(Boolean).sort(),
-        [classes]
+        [classes, semesters]
     );
     const faculties = useMemo(
         () => [...new Set(classes.map((c) => c.faculty || ""))].filter(Boolean).sort(),
@@ -114,7 +120,7 @@ export default function ClassListPage() {
 
     const filtered = classes.filter((c) => {
         const q = searchQuery.trim().toLowerCase();
-        const resolvedSemester = SEMESTERS.find((s) => s.id === c.semesterId)?.name || "";
+        const resolvedSemester = semesters.find((s) => String(s.id) === String(c.semesterId))?.name || "";
         const matchSearch =
             !q ||
             (c.name || "").toLowerCase().includes(q) ||
@@ -300,8 +306,8 @@ export default function ClassListPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filtered.map((cls) => {
                         const c = getColor(cls.id);
-                        const courseName = COURSES.find((co) => co.id === cls.courseId)?.name || "N/A";
-                        const semesterName = SEMESTERS.find((s) => s.id === cls.semesterId)?.name || "N/A";
+                        const courseName = courses.find((co) => String(co.id) === String(cls.courseId))?.name || "N/A";
+                        const semesterName = semesters.find((s) => String(s.id) === String(cls.semesterId))?.name || "N/A";
                         return (
                             <div
                                 key={cls.id}

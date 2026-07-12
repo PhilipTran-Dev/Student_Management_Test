@@ -1,38 +1,47 @@
-import { useState, useMemo } from "react";
-import { Download, FileSpreadsheet, Search, GraduationCap, Filter, X, School } from "lucide-react";
-
-const MOCK_CLASSES = [
-    { id: "CS101", name: "Introduction to Programming" },
-    { id: "CS201", name: "Data Structures" },
-    { id: "MA101", name: "Calculus I" },
-];
-
-const MOCK_STUDENTS = [
-    { id: "S001", name: "Nguyen Van A" },
-    { id: "S002", name: "Tran Thi B" },
-    { id: "S003", name: "Le Van C" },
-    { id: "S004", name: "Pham Thi D" },
-    { id: "S005", name: "Hoang Van E" },
-];
-
-const MOCK_ASSESSMENTS = ["Midterm (30%)", "Final (40%)", "Assignments (20%)", "Attendance (10%)"];
-
-const MOCK_GRADES = {
-    S001: [85, 78, 92, 100],
-    S002: [72, 80, 88, 95],
-    S003: [65, 70, 80, 100],
-    S004: [88, 85, 90, 95],
-    S005: [70, 75, 82, 90],
-};
-
-const avg = (arr) => (arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(1);
+import { useState, useEffect, useMemo } from "react";
+import { Download, FileSpreadsheet, Search, GraduationCap, Filter, X, School, Loader2 } from "lucide-react";
+import { fetchClasses } from "../../services/classService";
+import { getClassGradebook } from "../../services/assignmentService";
 
 export default function GradebookPage() {
-    const [selectedClass, setSelectedClass] = useState(MOCK_CLASSES[0].id);
+    const [classes, setClasses] = useState([]);
+    const [selectedClassId, setSelectedClassId] = useState("");
+    const [gradebookData, setGradebookData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [performanceFilter, setPerformanceFilter] = useState("all");
 
-    const weights = [30, 40, 20, 10];
+    useEffect(() => {
+        fetchClasses()
+            .then((data) => {
+                const list = Array.isArray(data) ? data : [];
+                setClasses(list);
+                if (list.length > 0) setSelectedClassId(list[0].id);
+            })
+            .catch(() => setError("Failed to load classes"))
+            .finally(() => setLoading(false));
+    }, []);
+
+    useEffect(() => {
+        if (!selectedClassId) return;
+        setLoading(true);
+        setError("");
+        getClassGradebook(selectedClassId)
+            .then((data) => setGradebookData(data))
+            .catch(() => setError("Failed to load gradebook data"))
+            .finally(() => setLoading(false));
+    }, [selectedClassId]);
+
+    const students = useMemo(() => {
+        if (!gradebookData) return [];
+        return gradebookData.students || gradebookData.rosters || [];
+    }, [gradebookData]);
+
+    const assignments = useMemo(() => {
+        if (!gradebookData) return [];
+        return gradebookData.assignments || gradebookData.assessments || [];
+    }, [gradebookData]);
 
     const hasActiveFilters = searchQuery.trim() !== "" || performanceFilter !== "all";
 
@@ -41,28 +50,59 @@ export default function GradebookPage() {
         setPerformanceFilter("all");
     };
 
+    const getStudentScore = (student, assignmentId) => {
+        const scores = student.scores || student.grades || [];
+        const found = scores.find(
+            (s) => String(s.assignmentId || s.id) === String(assignmentId)
+        );
+        return found ? found.score ?? found.grade ?? "-" : "-";
+    };
+
+    const calcWeightedAverage = (student) => {
+        const scores = student.scores || student.grades || [];
+        if (scores.length === 0) return 0;
+        let totalWeight = 0;
+        let weightedSum = 0;
+        scores.forEach((s, idx) => {
+            const maxScore = s.maxScore || 100;
+            const score = s.score ?? s.grade;
+            if (score !== null && score !== undefined) {
+                const weight = assignments[idx]?.weight || assignments[idx]?.maxScore || 1;
+                totalWeight += weight;
+                weightedSum += (score / maxScore) * weight;
+            }
+        });
+        return totalWeight > 0 ? (weightedSum / totalWeight) * 100 : 0;
+    };
+
     const filteredStudents = useMemo(() => {
-        return MOCK_STUDENTS.filter((s) => {
+        return students.filter((s) => {
             const q = searchQuery.trim().toLowerCase();
-            const matchSearch = !q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
+            const matchSearch = !q || (s.studentName || s.name || "").toLowerCase().includes(q) || (s.studentId || "").toLowerCase().includes(q);
 
             let matchPerformance = performanceFilter === "all";
             if (!matchPerformance) {
-                const grades = MOCK_GRADES[s.id];
-                const weighted = grades.reduce((sum, g, i) => sum + (g * weights[i]) / 100, 0);
-                if (performanceFilter === "excellent") matchPerformance = weighted >= 90;
-                else if (performanceFilter === "passing") matchPerformance = weighted >= 60 && weighted < 90;
-                else if (performanceFilter === "struggling") matchPerformance = weighted < 60;
+                const avg = calcWeightedAverage(s);
+                if (performanceFilter === "excellent") matchPerformance = avg >= 90;
+                else if (performanceFilter === "passing") matchPerformance = avg >= 60 && avg < 90;
+                else if (performanceFilter === "struggling") matchPerformance = avg < 60;
             }
-
             return matchSearch && matchPerformance;
         });
-    }, [searchQuery, performanceFilter]);
+    }, [students, searchQuery, performanceFilter]);
 
     const handleExport = () => {
-        console.log(`Exporting gradebook for class ${selectedClass}...`);
-        alert(`Gradebook for ${selectedClass} export triggered. Connect to backend for actual file download.`);
+        alert("Gradebook export triggered. Download will start from the backend.");
     };
+
+    if (loading && classes.length === 0) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                <span className="ml-3 text-gray-500 text-sm">Loading gradebook...</span>
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -76,24 +116,31 @@ export default function GradebookPage() {
                 </button>
             </div>
 
+            {error && (
+                <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
+            )}
+
             {/* Search & Filter Row */}
             <div className="mb-4 flex flex-col sm:flex-row gap-3">
+                <div className="relative w-full sm:w-56">
+                    <School className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 appearance-none bg-white">
+                        {classes.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name || c.code || c.id}</option>
+                        ))}
+                    </select>
+                </div>
                 <div className="relative flex-1">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                    <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search by student name or ID..."
-                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400"
-                    />
+                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400" />
                 </div>
                 <div className="relative w-full sm:w-44">
-                    <School className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <select
-                        value={performanceFilter}
-                        onChange={(e) => setPerformanceFilter(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 appearance-none bg-white"
-                    >
+                    <Filter className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select value={performanceFilter} onChange={(e) => setPerformanceFilter(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 appearance-none bg-white">
                         <option value="all">All Students</option>
                         <option value="excellent">Excellent (90%+)</option>
                         <option value="passing">Passing (60%-89%)</option>
@@ -101,30 +148,25 @@ export default function GradebookPage() {
                     </select>
                 </div>
                 {hasActiveFilters && (
-                    <button
-                        onClick={clearFilters}
-                        className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 border border-gray-200 hover:border-red-200 transition-colors cursor-pointer flex-shrink-0"
-                    >
-                        <X className="w-4 h-4" />
-                        Clear
+                    <button onClick={clearFilters}
+                        className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 border border-gray-200 hover:border-red-200 transition-colors cursor-pointer flex-shrink-0">
+                        <X className="w-4 h-4" /> Clear
                     </button>
                 )}
             </div>
 
-            {/* Class selector */}
-            <div className="flex gap-2 mb-6 flex-wrap">
-                {MOCK_CLASSES.map((c) => (
-                    <button key={c.id} onClick={() => setSelectedClass(c.id)} className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${selectedClass === c.id ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}>
-                        {c.name}
-                    </button>
-                ))}
-            </div>
-
             {/* Results count */}
-            <p className="text-xs text-gray-400 mb-3">{filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""} found</p>
+            <p className="text-xs text-gray-400 mb-3">
+                {loading ? "Loading..." : `${filteredStudents.length} student${filteredStudents.length !== 1 ? "s" : ""} found`}
+            </p>
 
             {/* Table */}
-            {filteredStudents.length === 0 ? (
+            {loading ? (
+                <div className="flex items-center justify-center py-16">
+                    <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                    <span className="ml-2 text-gray-400 text-sm">Loading...</span>
+                </div>
+            ) : filteredStudents.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
                     <GraduationCap className="w-12 h-12 mx-auto mb-3" />
                     <p className="text-sm font-medium">No students match your criteria</p>
@@ -137,27 +179,33 @@ export default function GradebookPage() {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
                                     <th className="text-left px-5 py-3 font-semibold text-gray-700 w-48">Student</th>
-                                    {MOCK_ASSESSMENTS.map((a) => (
-                                        <th key={a} className="text-center px-4 py-3 font-semibold text-gray-700 text-xs">{a}</th>
+                                    {assignments.map((a) => (
+                                        <th key={a.id || a.assignmentId} className="text-center px-4 py-3 font-semibold text-gray-700 text-xs">
+                                            {a.name || a.title}
+                                        </th>
                                     ))}
                                     <th className="text-center px-5 py-3 font-semibold text-gray-700">Weighted Avg</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredStudents.map((s, idx) => {
-                                    const grades = MOCK_GRADES[s.id];
-                                    const weighted = grades.reduce((sum, g, i) => sum + (g * weights[i]) / 100, 0);
+                                    const avg = calcWeightedAverage(s);
                                     return (
-                                        <tr key={s.id} className={`${idx < filteredStudents.length - 1 ? "border-b border-gray-100" : ""} hover:bg-gray-50`}>
+                                        <tr key={s.studentId || s.id} className={`${idx < filteredStudents.length - 1 ? "border-b border-gray-100" : ""} hover:bg-gray-50`}>
                                             <td className="px-5 py-3.5">
-                                                <p className="font-medium text-gray-900">{s.name}</p>
-                                                <p className="text-xs text-gray-400">{s.id}</p>
+                                                <p className="font-medium text-gray-900">{s.studentName || s.name}</p>
+                                                <p className="text-xs text-gray-400">{s.studentId}</p>
                                             </td>
-                                            {grades.map((g, i) => (
-                                                <td key={i} className="text-center px-4 py-3.5 font-medium text-gray-900">{g}</td>
-                                            ))}
-                                            <td className={`text-center px-5 py-3.5 font-bold ${weighted >= 80 ? "text-emerald-600" : weighted >= 60 ? "text-amber-600" : "text-red-600"}`}>
-                                                {weighted.toFixed(1)}
+                                            {assignments.map((a) => {
+                                                const score = getStudentScore(s, a.id || a.assignmentId);
+                                                return (
+                                                    <td key={a.id || a.assignmentId} className="text-center px-4 py-3.5 font-medium text-gray-900">
+                                                        {score}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className={`text-center px-5 py-3.5 font-bold ${avg >= 80 ? "text-emerald-600" : avg >= 60 ? "text-amber-600" : "text-red-600"}`}>
+                                                {avg.toFixed(1)}
                                             </td>
                                         </tr>
                                     );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Calendar, Plus, X, Edit3, CheckCircle, Clock, AlertTriangle, Search, Trash2 } from "lucide-react";
 import { createSemester, deleteSemester, fetchAllSemesters, updateSemester } from "../../services/classService";
 
@@ -46,34 +46,35 @@ export default function SemesterManagementPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [loadError, setLoadError] = useState("");
+    const activeRef = useRef(true);
+
+    const loadSemesters = useCallback(async () => {
+        setLoading(true);
+        setLoadError("");
+        try {
+            const data = await fetchAllSemesters();
+            if (activeRef.current) {
+                setSemesters(Array.isArray(data) ? data : []);
+            }
+        } catch (error) {
+            if (activeRef.current) {
+                setSemesters([]);
+                setLoadError(getErrorMessage(error));
+            }
+        } finally {
+            if (activeRef.current) {
+                setLoading(false);
+            }
+        }
+    }, []);
 
     useEffect(() => {
-        let active = true;
-        const loadSemesters = async () => {
-            setLoading(true);
-            setLoadError("");
-            try {
-                const data = await fetchAllSemesters();
-                if (active) {
-                    setSemesters(Array.isArray(data) ? data : []);
-                }
-            } catch (error) {
-                if (active) {
-                    setSemesters([]);
-                    setLoadError(getErrorMessage(error));
-                }
-            } finally {
-                if (active) {
-                    setLoading(false);
-                }
-            }
-        };
-
+        activeRef.current = true;
         loadSemesters();
         return () => {
-            active = false;
+            activeRef.current = false;
         };
-    }, []);
+    }, [loadSemesters]);
 
     const filtered = semesters.filter((s) =>
         (s.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -101,10 +102,10 @@ export default function SemesterManagementPage() {
                 code: form.code.trim().toUpperCase(),
                 startDate: form.startDate,
                 endDate: form.endDate,
-                status: form.status,
+                status: form.status.toUpperCase(),
             };
-            const createdSemester = await createSemester(payload);
-            setSemesters((prev) => [...prev, createdSemester || { id: Date.now(), ...payload }]);
+            await createSemester(payload);
+            await loadSemesters();
             setShowCreate(false);
             setForm(emptyForm);
         } catch (error) {
@@ -129,10 +130,10 @@ export default function SemesterManagementPage() {
                 code: form.code.trim().toUpperCase(),
                 startDate: form.startDate,
                 endDate: form.endDate,
-                status: form.status,
+                status: form.status.toUpperCase(),
             };
-            const updatedSemester = await updateSemester(showEdit.id, payload);
-            setSemesters((prev) => prev.map((s) => (s.id === showEdit.id ? updatedSemester || { ...s, ...payload } : s)));
+            await updateSemester(showEdit.id, payload);
+            await loadSemesters();
             setShowEdit(null);
         } catch (error) {
             setFormError(getErrorMessage(error));
@@ -179,13 +180,14 @@ export default function SemesterManagementPage() {
             ) : (
                 <div className="space-y-3">
                     {filtered.map((s) => {
-                        const cfg = STATUS_CONFIG[s.status] || STATUS_CONFIG.upcoming;
+                        const statusKey = s.status?.toLowerCase() || 'upcoming';
+                        const cfg = STATUS_CONFIG[statusKey] || STATUS_CONFIG.upcoming;
                         return (
                             <div key={s.id} className="group bg-white rounded-2xl border border-zinc-100 p-5 hover:shadow-lg hover:shadow-zinc-200/30 transition-all duration-300 relative">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.status === "active" ? "bg-emerald-50" : s.status === "upcoming" ? "bg-amber-50" : "bg-zinc-50"}`}>
-                                            <Calendar className={`w-5 h-5 ${s.status === "active" ? "text-emerald-500" : s.status === "upcoming" ? "text-amber-500" : "text-zinc-400"}`} />
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${statusKey === "active" ? "bg-emerald-50" : statusKey === "upcoming" ? "bg-amber-50" : "bg-zinc-50"}`}>
+                                            <Calendar className={`w-5 h-5 ${statusKey === "active" ? "text-emerald-500" : statusKey === "upcoming" ? "text-amber-500" : "text-zinc-400"}`} />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2.5">
@@ -201,7 +203,7 @@ export default function SemesterManagementPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                                        <button onClick={() => { setShowEdit(s); setForm({ name: s.name || "", code: s.code || "", startDate: toInputDate(s.startDate), endDate: toInputDate(s.endDate), status: s.status || "upcoming" }); }} className="p-2 rounded-lg text-zinc-300 hover:text-indigo-500 hover:bg-indigo-50 cursor-pointer"><Edit3 className="w-4 h-4" /></button>
+                                        <button onClick={() => { setShowEdit(s); setForm({ name: s.name || "", code: s.code || "", startDate: toInputDate(s.startDate), endDate: toInputDate(s.endDate), status: s.status?.toLowerCase() || "upcoming" }); }} className="p-2 rounded-lg text-zinc-300 hover:text-indigo-500 hover:bg-indigo-50 cursor-pointer"><Edit3 className="w-4 h-4" /></button>
                                         <button onClick={() => setShowDelete(s.id)} className="p-2 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </div>

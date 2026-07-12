@@ -1,46 +1,60 @@
-import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, FileText, Upload, Clock, CheckCircle, X, Download, MessageSquare, Star, AlertTriangle } from "lucide-react";
-
-const MOCK_ASSIGNMENT = {
-    id: "A02",
-    title: "Week 2 - Variables & Types",
-    class: "CS101",
-    due: "2026-02-17T23:59:00",
-    points: 10,
-    description: "Complete the exercises on variables, data types, and type conversion in JavaScript. Submit a single .js file with all your work clearly commented.\n\nTasks:\n1. Declare variables using let, const, and var\n2. Demonstrate at least 5 different data types\n3. Show type conversion examples (implicit and explicit)\n4. Include comments explaining each section",
-    submitted: false,
-    submittedFile: null,
-    submittedAt: null,
-    feedback: null,
-    grade: null,
-};
-
-const MOCK_SUBMITTED = {
-    ...MOCK_ASSIGNMENT,
-    title: "Week 1 - Hello World",
-    id: "A01",
-    due: "2026-02-10T23:59:00",
-    submitted: true,
-    submittedFile: "hello_world.js",
-    submittedAt: "2026-02-09T14:30:00",
-    grade: 9,
-    feedback: "Good work! Clear code structure and proper comments. Missing the bonus task for extra credit.",
-};
+import { useState, useEffect } from "react";
+import { useParams, useLocation, Link } from "react-router-dom";
+import { ArrowLeft, FileText, Upload, Clock, CheckCircle, X, Download, MessageSquare, Star, AlertTriangle, Loader2 } from "lucide-react";
+import { getClassAssignments, submitAssignment, unsubmitAssignment } from "../../services/assignmentService";
+import { fetchStudentClasses } from "../../services/classService";
 
 export default function AssignmentDetailPage() {
     const { assignmentId } = useParams();
-    const isSubmittedMock = assignmentId === "A01";
-    const assignment = isSubmittedMock ? MOCK_SUBMITTED : MOCK_ASSIGNMENT;
+    const location = useLocation();
+    const classIdFromState = location.state?.classId;
 
-    const [file, setFile] = useState(null);
+    const [assignment, setAssignment] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    const [files, setFiles] = useState([]);
     const [dragOver, setDragOver] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [submitted, setSubmitted] = useState(assignment.submitted);
-    const [submittedFile, setSubmittedFile] = useState(assignment.submittedFile);
     const [serverError, setServerError] = useState("");
 
-    const dueDate = new Date(assignment.due);
+    useEffect(() => {
+        loadAssignment();
+    }, [assignmentId]);
+
+    const loadAssignment = async () => {
+        setLoading(true);
+        setError("");
+        try {
+            if (classIdFromState) {
+                const data = await getClassAssignments(classIdFromState);
+                const list = Array.isArray(data) ? data : [];
+                const found = list.find((a) => String(a.id) === String(assignmentId));
+                if (found) {
+                    setAssignment(found);
+                    return;
+                }
+            }
+            const classes = await fetchStudentClasses();
+            const classList = Array.isArray(classes) ? classes : [];
+            for (const cls of classList) {
+                const data = await getClassAssignments(cls.id);
+                const list = Array.isArray(data) ? data : [];
+                const found = list.find((a) => String(a.id) === String(assignmentId));
+                if (found) {
+                    setAssignment(found);
+                    return;
+                }
+            }
+            setError("Assignment not found");
+        } catch {
+            setError("Failed to load assignment details");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const dueDate = assignment ? new Date(assignment.dueDate) : new Date();
     const now = new Date();
     const timeLeft = dueDate - now;
     const isOverdue = timeLeft < 0;
@@ -59,25 +73,26 @@ export default function AssignmentDetailPage() {
     const handleDrop = (e) => {
         e.preventDefault();
         setDragOver(false);
-        const f = e.dataTransfer.files[0];
-        if (f) setFile(f);
+        const dropped = Array.from(e.dataTransfer.files || []);
+        if (dropped.length > 0) setFiles((prev) => [...prev, ...dropped]);
     };
     const handleFileSelect = (e) => {
-        if (e.target.files[0]) setFile(e.target.files[0]);
+        const selected = Array.from(e.target.files || []);
+        if (selected.length > 0) setFiles((prev) => [...prev, ...selected]);
+        e.target.value = "";
+    };
+    const removeFile = (index) => {
+        setFiles((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async () => {
-        if (!file) return;
+        if (files.length === 0) return;
         setServerError("");
         setSubmitting(true);
         try {
-            // const formData = new FormData();
-            // formData.append("file", file);
-            // const res = await axios.post(`/api/student/assignments/${assignmentId}/submit`, formData);
-            await new Promise((r) => setTimeout(r, 1500));
-            setSubmitted(true);
-            setSubmittedFile(file.name);
-            setFile(null);
+            await submitAssignment(assignmentId, files);
+            setAssignment((prev) => ({ ...prev, state: "DONE", submittedFiles: files.map((f) => f.name) }));
+            setFiles([]);
         } catch (err) {
             setServerError(err.response?.data?.message || "Submission failed.");
         } finally {
@@ -86,16 +101,43 @@ export default function AssignmentDetailPage() {
     };
 
     const handleUnsubmit = async () => {
+        setServerError("");
         setSubmitting(true);
         try {
-            // await axios.post(`/api/student/assignments/${assignmentId}/unsubmit`);
-            await new Promise((r) => setTimeout(r, 800));
-            setSubmitted(false);
-            setSubmittedFile(null);
+            await unsubmitAssignment(assignmentId);
+            setAssignment((prev) => ({ ...prev, state: "TODO", submittedFiles: null, earnedGrade: null }));
+        } catch (err) {
+            setServerError(err.response?.data?.message || "Unsubmit failed.");
         } finally {
             setSubmitting(false);
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                <span className="ml-3 text-gray-500 text-sm">Loading assignment...</span>
+            </div>
+        );
+    }
+
+    if (error && !assignment) {
+        return (
+            <div>
+                <Link to="/student/assignments" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors">
+                    <ArrowLeft className="w-4 h-4" /> Back to assignments
+                </Link>
+                <div className="text-center py-16 text-gray-400">
+                    <AlertTriangle className="w-12 h-12 mx-auto mb-3" />
+                    <p className="text-sm font-medium">{error}</p>
+                </div>
+            </div>
+        );
+    }
+
+    const isSubmitted = assignment.state === "DONE";
+    const isGraded = assignment.earnedGrade !== null && assignment.earnedGrade !== undefined;
 
     return (
         <div>
@@ -109,12 +151,12 @@ export default function AssignmentDetailPage() {
                     {/* Header */}
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                            <span className="font-medium text-indigo-600">{assignment.class}</span>
+                            <span className="font-medium text-indigo-600">{assignment.className || assignment.classId}</span>
                         </div>
                         <h1 className="text-xl font-bold text-gray-900">{assignment.title}</h1>
                         <p className="text-sm text-gray-600 mt-3 whitespace-pre-line">{assignment.description}</p>
 
-                        {isOverdue && !submitted && (
+                        {isOverdue && !isSubmitted && (
                             <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
                                 <AlertTriangle className="w-4 h-4" /> This assignment is overdue.
                             </div>
@@ -129,17 +171,25 @@ export default function AssignmentDetailPage() {
                             <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{serverError}</div>
                         )}
 
-                        {submitted ? (
+                        {isSubmitted ? (
                             <div>
                                 <div className="flex items-center gap-3 p-4 rounded-lg bg-emerald-50 border border-emerald-200 mb-4">
                                     <CheckCircle className="w-5 h-5 text-emerald-600" />
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-emerald-800">Submitted</p>
-                                        <p className="text-xs text-emerald-600 truncate">{submittedFile}</p>
+                                        <p className="text-xs text-emerald-600 truncate">
+                                            {assignment.submittedFiles?.join(", ") || "Files submitted"}
+                                        </p>
                                     </div>
-                                    <button onClick={handleUnsubmit} disabled={submitting} className="text-xs font-medium text-red-600 hover:text-red-700 cursor-pointer">
-                                        {submitting ? "..." : "Unsubmit & Resubmit"}
-                                    </button>
+                                    {!isGraded && (
+                                        <button
+                                            onClick={handleUnsubmit}
+                                            disabled={submitting}
+                                            className="text-xs font-medium text-red-600 hover:text-red-700 cursor-pointer disabled:opacity-50"
+                                        >
+                                            {submitting ? "..." : "Unsubmit & Resubmit"}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ) : (
@@ -152,20 +202,24 @@ export default function AssignmentDetailPage() {
                                     onClick={() => document.getElementById("fileInput").click()}
                                 >
                                     <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                                    <p className="text-sm font-medium text-gray-600">Drag & drop your file here</p>
-                                    <p className="text-xs text-gray-400 mt-1">or click to browse</p>
-                                    <input id="fileInput" type="file" onChange={handleFileSelect} className="hidden" />
+                                    <p className="text-sm font-medium text-gray-600">Drag & drop files here</p>
+                                    <p className="text-xs text-gray-400 mt-1">or click to browse (multiple files)</p>
+                                    <input id="fileInput" type="file" multiple onChange={handleFileSelect} className="hidden" />
                                 </div>
-                                {file && (
-                                    <div className="mt-3 flex items-center gap-2 p-3 rounded-lg bg-gray-50 border border-gray-200">
-                                        <FileText className="w-4 h-4 text-gray-500" />
-                                        <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
-                                        <button onClick={() => setFile(null)} className="text-gray-400 hover:text-red-500 cursor-pointer"><X className="w-4 h-4" /></button>
+                                {files.length > 0 && (
+                                    <div className="mt-3 space-y-1.5">
+                                        {files.map((f, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                                <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                                <span className="text-sm text-gray-700 flex-1 truncate">{f.name}</span>
+                                                <button onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-500 cursor-pointer flex-shrink-0"><X className="w-4 h-4" /></button>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={!file || submitting}
+                                    disabled={files.length === 0 || submitting}
                                     className="mt-4 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold text-sm transition-colors flex items-center gap-2 cursor-pointer"
                                 >
                                     {submitting ? "Submitting..." : <><Upload className="w-4 h-4" /> Submit Assignment</>}
@@ -175,7 +229,7 @@ export default function AssignmentDetailPage() {
                     </div>
 
                     {/* Feedback */}
-                    {assignment.feedback && (
+                    {isGraded && assignment.feedback && (
                         <div className="bg-white rounded-xl border border-gray-200 p-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                 <MessageSquare className="w-5 h-5 text-indigo-600" />
@@ -198,23 +252,25 @@ export default function AssignmentDetailPage() {
                                 <p className="text-xs text-gray-500">Due Date</p>
                                 <p className="font-medium text-gray-900">{dueDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</p>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500">Time Remaining</p>
-                                <p className={`font-medium flex items-center gap-1 ${isOverdue ? "text-red-600" : "text-amber-600"}`}>
-                                    <Clock className="w-3.5 h-3.5" />
-                                    {formatTimeLeft(timeLeft)}
-                                </p>
-                            </div>
+                            {!isSubmitted && (
+                                <div>
+                                    <p className="text-xs text-gray-500">Time Remaining</p>
+                                    <p className={`font-medium flex items-center gap-1 ${isOverdue ? "text-red-600" : "text-amber-600"}`}>
+                                        <Clock className="w-3.5 h-3.5" />
+                                        {formatTimeLeft(timeLeft)}
+                                    </p>
+                                </div>
+                            )}
                             <div>
                                 <p className="text-xs text-gray-500">Points</p>
-                                <p className="font-medium text-gray-900">{assignment.points} pts</p>
+                                <p className="font-medium text-gray-900">{assignment.maxScore} pts</p>
                             </div>
-                            {assignment.grade !== null && (
+                            {isGraded && (
                                 <div className="pt-3 border-t border-gray-100">
                                     <p className="text-xs text-gray-500">Grade</p>
                                     <p className="text-lg font-bold text-emerald-600">
                                         <Star className="w-4 h-4 inline mr-1" />
-                                        {assignment.grade}/{assignment.points}
+                                        {assignment.earnedGrade}/{assignment.maxScore}
                                     </p>
                                 </div>
                             )}

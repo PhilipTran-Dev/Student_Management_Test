@@ -53,9 +53,28 @@ export const updateAssignment = async (id, formData) => {
     return response.data;
 };
 
+export const deleteAssignment = async (id) => {
+    const response = await assignmentApi.delete(`${ASSIGNMENTS_BASE}/teacher/${id}`);
+    return response.data;
+};
+
+export const deleteFile = async (assignmentId, fileName) => {
+    const response = await assignmentApi.delete(
+        `${ASSIGNMENTS_BASE}/teacher/${assignmentId}/file/${encodeURIComponent(fileName)}`
+    );
+    return response.data;
+};
+
+export const getAttachmentUrl = async (objectName) => {
+    const response = await assignmentApi.get(`${ASSIGNMENTS_BASE}/teacher/download-url`, {
+        params: { objectName },
+    });
+    return response.data;
+};
+
 export const getClassGradebook = async (classId) => {
     const response = await assignmentApi.get(
-        `${ASSIGNMENTS_BASE}/gradebook/class/${classId}`
+        `${ASSIGNMENTS_BASE}/teacher/class/${classId}/gradebook`
     );
     return response.data;
 };
@@ -66,6 +85,11 @@ export const getClassAssignments = async (classId) => {
     const response = await assignmentApi.get(
         `${ASSIGNMENTS_BASE}/student/class/${classId}`
     );
+    return response.data;
+};
+
+export const getDashboardStats = async () => {
+    const response = await assignmentApi.get(`${ASSIGNMENTS_BASE}/student/dashboard-stats`);
     return response.data;
 };
 
@@ -86,5 +110,12 @@ export const unsubmitAssignment = async (assignmentId) => {
     const response = await assignmentApi.delete(
         `${ASSIGNMENTS_BASE}/student/${assignmentId}/unsubmit`
     );
+    return response.data;
+};
+
+export const getStudentAttachmentUrl = async (objectName) => {
+    const response = await assignmentApi.get(`${ASSIGNMENTS_BASE}/student/download-url`, {
+        params: { objectName },
+    });
     return response.data;
 };

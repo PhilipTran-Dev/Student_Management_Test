@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation, Link } from "react-router-dom";
-import { ArrowLeft, FileText, Upload, Clock, CheckCircle, X, Download, MessageSquare, Star, AlertTriangle, Loader2 } from "lucide-react";
-import { getClassAssignments, submitAssignment, unsubmitAssignment } from "../../services/assignmentService";
+import { ArrowLeft, FileText, Upload, Clock, CheckCircle, X, Download, MessageSquare, Star, AlertTriangle, Loader2, Eye } from "lucide-react";
+import { getClassAssignments, submitAssignment, unsubmitAssignment, getStudentAttachmentUrl } from "../../services/assignmentService";
 import { fetchStudentClasses } from "../../services/classService";
 
 export default function AssignmentDetailPage() {
@@ -54,7 +54,7 @@ export default function AssignmentDetailPage() {
         }
     };
 
-    const dueDate = assignment ? new Date(assignment.dueDate) : new Date();
+    const dueDate = assignment ? new Date(assignment.deadline) : new Date();
     const now = new Date();
     const timeLeft = dueDate - now;
     const isOverdue = timeLeft < 0;
@@ -110,6 +110,31 @@ export default function AssignmentDetailPage() {
             setServerError(err.response?.data?.message || "Unsubmit failed.");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleStudentFileAction = async (objectName, actionType) => {
+        try {
+            const response = await getStudentAttachmentUrl(objectName);
+            const url = response?.data?.url || response?.url || response;
+            if (actionType === "preview") {
+                const ext = objectName.split(".").pop()?.toLowerCase();
+                const officeExts = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
+                if (officeExts.includes(ext)) {
+                    window.open("https://view.officeapps.live.com/op/view.aspx?src=" + encodeURIComponent(url), "_blank");
+                } else {
+                    window.open(url, "_blank");
+                }
+            } else {
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        } catch {
+            console.error(`Failed to ${actionType} file:`, objectName);
         }
     };
 
@@ -174,23 +199,49 @@ export default function AssignmentDetailPage() {
                         {isSubmitted ? (
                             <div>
                                 <div className="flex items-center gap-3 p-4 rounded-lg bg-emerald-50 border border-emerald-200 mb-4">
-                                    <CheckCircle className="w-5 h-5 text-emerald-600" />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-emerald-800">Submitted</p>
-                                        <p className="text-xs text-emerald-600 truncate">
-                                            {assignment.submittedFiles?.join(", ") || "Files submitted"}
-                                        </p>
-                                    </div>
+                                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                                    <p className="text-sm font-medium text-emerald-800 flex-1 min-w-0">Submitted</p>
                                     {!isGraded && (
                                         <button
                                             onClick={handleUnsubmit}
                                             disabled={submitting}
-                                            className="text-xs font-medium text-red-600 hover:text-red-700 cursor-pointer disabled:opacity-50"
+                                            className="text-xs font-medium text-red-600 hover:text-red-700 cursor-pointer disabled:opacity-50 flex-shrink-0"
                                         >
                                             {submitting ? "..." : "Unsubmit & Resubmit"}
                                         </button>
                                     )}
                                 </div>
+                                {assignment.submittedFiles && assignment.submittedFiles.length > 0 && (
+                                    <div className="space-y-2 mt-3">
+                                        {assignment.submittedFiles.map((fileUrl, index) => {
+                                            const cleanFileName = typeof fileUrl === "string" && fileUrl.includes("_")
+                                                ? fileUrl.split("_").slice(1).join("_")
+                                                : typeof fileUrl === "string" ? fileUrl : `File ${index + 1}`;
+                                            return (
+                                                <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                                    <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                                    <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{cleanFileName}</span>
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleStudentFileAction(fileUrl, "preview")}
+                                                            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                                                        >
+                                                            Preview
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleStudentFileAction(fileUrl, "download")}
+                                                            className="text-xs font-medium text-emerald-600 hover:text-emerald-800 cursor-pointer"
+                                                        >
+                                                            Download
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div>
@@ -263,14 +314,14 @@ export default function AssignmentDetailPage() {
                             )}
                             <div>
                                 <p className="text-xs text-gray-500">Points</p>
-                                <p className="font-medium text-gray-900">{assignment.maxScore} pts</p>
+                                <p className="font-medium text-gray-900">{assignment.maxMark} pts</p>
                             </div>
                             {isGraded && (
                                 <div className="pt-3 border-t border-gray-100">
                                     <p className="text-xs text-gray-500">Grade</p>
                                     <p className="text-lg font-bold text-emerald-600">
                                         <Star className="w-4 h-4 inline mr-1" />
-                                        {assignment.earnedGrade}/{assignment.maxScore}
+                                        {assignment.earnedGrade}/{assignment.maxMark}
                                     </p>
                                 </div>
                             )}

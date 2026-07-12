@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useParams, useLocation, Link } from "react-router-dom";
+import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, FileText, Edit3, Trash2, X, Plus, Loader2, AlertTriangle, Upload } from "lucide-react";
-import { getTeacherAssignmentById, updateAssignment, getTeacherAssignments } from "../../services/assignmentService";
+import { getTeacherAssignmentById, updateAssignment, getTeacherAssignments, getAttachmentUrl, deleteAssignment, deleteFile } from "../../services/assignmentService";
 import { fetchClasses } from "../../services/classService";
 
 export default function AssignmentDetailPage() {
@@ -18,6 +18,7 @@ export default function AssignmentDetailPage() {
     const [formError, setFormError] = useState("");
     const [saving, setSaving] = useState(false);
     const [newFiles, setNewFiles] = useState([]);
+    const navigate = useNavigate();
 
     const [editForm, setEditForm] = useState({
         title: "",
@@ -88,6 +89,31 @@ export default function AssignmentDetailPage() {
         setShowEdit(true);
     };
 
+    const handleFileAction = async (objectName, actionType) => {
+        try {
+            const response = await getAttachmentUrl(objectName);
+            const url = response?.data?.url || response?.url || response;
+            if (actionType === "preview") {
+                const ext = objectName.split(".").pop()?.toLowerCase();
+                const officeExts = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
+                if (officeExts.includes(ext)) {
+                    window.open("https://view.officeapps.live.com/op/view.aspx?src=" + encodeURIComponent(url), "_blank");
+                } else {
+                    window.open(url, "_blank");
+                }
+            } else {
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        } catch {
+            console.error(`Failed to ${actionType} file:`, objectName);
+        }
+    };
+
     const handleUpdateSubmit = async (e) => {
         e.preventDefault();
         setFormError("");
@@ -118,11 +144,13 @@ export default function AssignmentDetailPage() {
             }
         }
 
+        const finalDeadline = String(formattedDeadline).substring(0, 16);
+
         const updatePayload = {
             classId: assignment.classId,
             title: rawTitle,
             description: editForm.description ? editForm.description.trim() : "",
-            deadline: formattedDeadline,
+            deadline: finalDeadline,
             maxMark: parsedMaxMark,
         };
 
@@ -146,6 +174,7 @@ export default function AssignmentDetailPage() {
                 ...updatePayload,
                 maxMark: updatePayload.maxMark,
                 id: result.id || result.assignmentId || prev.id,
+                attachments: result.attachments || result.files || prev.attachments,
             }));
             setShowEdit(false);
             setNewFiles([]);
@@ -156,8 +185,25 @@ export default function AssignmentDetailPage() {
         }
     };
 
-    const handleDelete = () => {
-        window.location.href = "/teacher/assignments";
+    const handleDeleteFile = async (fileName) => {
+        try {
+            await deleteFile(assignmentId, fileName);
+            setAssignment((prev) => ({
+                ...prev,
+                attachments: prev.attachments ? prev.attachments.filter((f) => f !== fileName) : [],
+            }));
+        } catch (error) {
+            alert("Failed to delete file");
+        }
+    };
+
+    const handleDelete = async () => {
+        try {
+            await deleteAssignment(assignmentId);
+            navigate("/teacher/assignments");
+        } catch (error) {
+            alert("Failed to delete assignment");
+        }
     };
 
     if (loading) {
@@ -210,18 +256,45 @@ export default function AssignmentDetailPage() {
 
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-3">Attached Files</h2>
-                        {(!assignment.attachments || assignment.attachments.length === 0) ? (
-                            <p className="text-sm text-gray-400 text-center py-6">No files attached yet.</p>
-                        ) : (
+                        {assignment.attachments && assignment.attachments.length > 0 ? (
                             <div className="space-y-2">
-                                {(assignment.attachments || []).map((att) => (
-                                    <div key={att.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
-                                        <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                        <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{att.name || att.fileName}</span>
-                                        <span className="text-xs font-medium text-indigo-600 cursor-pointer flex-shrink-0">Download</span>
-                                    </div>
-                                ))}
+                                {assignment.attachments.map((fileUrl, index) => {
+                                    const cleanFileName = typeof fileUrl === "string" && fileUrl.includes("_")
+                                        ? fileUrl.split("_").slice(1).join("_")
+                                        : typeof fileUrl === "string" ? fileUrl : `File ${index + 1}`;
+                                    return (
+                                        <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                            <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                            <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{cleanFileName}</span>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleFileAction(fileUrl, "preview")}
+                                                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                                                >
+                                                    Preview
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleFileAction(fileUrl, "download")}
+                                                    className="text-xs font-medium text-emerald-600 hover:text-emerald-800 cursor-pointer"
+                                                >
+                                                    Download
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteFile(fileUrl)}
+                                                    className="text-xs font-medium text-red-500 hover:text-red-700 cursor-pointer"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
+                        ) : (
+                            <p className="text-sm text-gray-400 text-center py-6">No files attached yet.</p>
                         )}
                     </div>
                 </div>

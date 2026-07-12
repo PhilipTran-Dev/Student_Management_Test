@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { FileText, Download, Search, Clock, CheckCircle, AlertCircle, X, Send, Star, Filter, BookOpen, Loader2 } from "lucide-react";
+import { FileText, Download, Search, Clock, CheckCircle, AlertCircle, X, Send, Star, Filter, BookOpen, Loader2, Eye } from "lucide-react";
 import { fetchClasses } from "../../services/classService";
-import { getClassGradebook, getAssignmentSubmissions, gradeSubmission } from "../../services/assignmentService";
+import { getTeacherAssignments, getAssignmentSubmissions, gradeSubmission, getAttachmentUrl } from "../../services/assignmentService";
 
 const STATUS_STYLES = {
     ON_TIME: { label: "On Time", color: "text-emerald-600 bg-emerald-50" },
@@ -25,6 +25,31 @@ export default function SubmissionsPage() {
     const [formError, setFormError] = useState("");
     const [saving, setSaving] = useState(false);
 
+    const handleFileAction = async (objectName, actionType) => {
+        try {
+            const response = await getAttachmentUrl(objectName);
+            const url = response?.data?.url || response?.url || response;
+            if (actionType === "preview") {
+                const ext = objectName.split(".").pop()?.toLowerCase();
+                const officeExts = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
+                if (officeExts.includes(ext)) {
+                    window.open("https://view.officeapps.live.com/op/view.aspx?src=" + encodeURIComponent(url), "_blank");
+                } else {
+                    window.open(url, "_blank");
+                }
+            } else {
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        } catch {
+            console.error(`Failed to ${actionType} file:`, objectName);
+        }
+    };
+
     useEffect(() => {
         fetchClasses()
             .then((data) => {
@@ -38,11 +63,13 @@ export default function SubmissionsPage() {
 
     useEffect(() => {
         if (!selectedClassId) return;
-        getClassGradebook(selectedClassId)
+        getTeacherAssignments(selectedClassId)
             .then((data) => {
-                const list = data.assignments || data.assessments || [];
-                setAssignments(Array.isArray(list) ? list : []);
-                if (list.length > 0) setSelectedAssignmentId(list[0].id || list[0].assignmentId);
+                const list = Array.isArray(data) ? data : [];
+                setAssignments(list);
+                if (list.length > 0) {
+                    setSelectedAssignmentId(list[0].id || list[0].assignmentId);
+                }
             })
             .catch(() => setAssignments([]));
     }, [selectedClassId]);
@@ -73,21 +100,24 @@ export default function SubmissionsPage() {
             setFormError("Enter a valid score");
             return;
         }
+        const submissionId = selected.submissionId || selected.id;
         setSaving(true);
         try {
-            await gradeSubmission(selected.id, {
+            const response = await gradeSubmission(submissionId, {
                 grade: parseFloat(gradeForm.score),
                 feedback: gradeForm.feedback,
             });
+            const updated = response.data;
             setSubmissions((prev) =>
                 prev.map((s) =>
-                    s.id === selected.id
-                        ? { ...s, score: parseFloat(gradeForm.score), feedback: gradeForm.feedback }
+                    (s.submissionId === submissionId || s.id === submissionId)
+                        ? { ...s, grade: updated.grade, feedback: updated.feedback }
                         : s
                 )
             );
             setSelected(null);
             setGradeForm({ score: "", feedback: "" });
+            alert("Grade saved successfully");
         } catch (err) {
             setFormError(err.response?.data?.message || "Failed to save grade");
         } finally {
@@ -96,9 +126,8 @@ export default function SubmissionsPage() {
     };
 
     const openGradeModal = (s) => {
-        if (s.status === "MISSING" || s.status === "TO_DO") return;
         setSelected(s);
-        setGradeForm({ score: s.score ?? s.grade ?? "", feedback: s.feedback || "" });
+        setGradeForm({ score: s.grade ?? "", feedback: s.feedback || "" });
         setFormError("");
     };
 
@@ -199,6 +228,8 @@ export default function SubmissionsPage() {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
                                     <th className="text-left px-5 py-3 font-semibold text-gray-700">Student</th>
+                                    <th className="text-left px-5 py-3 font-semibold text-gray-700">Student ID</th>
+                                    <th className="text-left px-5 py-3 font-semibold text-gray-700">Class</th>
                                     <th className="text-center px-5 py-3 font-semibold text-gray-700">Status</th>
                                     <th className="text-center px-5 py-3 font-semibold text-gray-700">Score</th>
                                     <th className="text-center px-5 py-3 font-semibold text-gray-700">Actions</th>
@@ -210,24 +241,29 @@ export default function SubmissionsPage() {
                                     const isClickable = s.status !== "MISSING" && s.status !== "TO_DO";
                                     return (
                                         <tr key={s.id || s.studentId}
-                                            onClick={() => openGradeModal(s)}
-                                            className={`${idx < filtered.length - 1 ? "border-b border-gray-100" : ""} ${isClickable ? "hover:bg-gray-50 cursor-pointer" : ""} transition-colors`}>
+                                            className={`${idx < filtered.length - 1 ? "border-b border-gray-100" : ""} transition-colors`}>
                                             <td className="px-5 py-3.5">
                                                 <p className="font-medium text-gray-900">{s.studentName || s.student}</p>
-                                                <p className="text-xs text-gray-400">{s.studentId}</p>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="text-sm text-gray-600">{s.studentCode || s.studentId}</span>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="text-sm text-gray-600">{s.className}</span>
                                             </td>
                                             <td className="px-5 py-3.5 text-center">
                                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${st.color}`}>{st.label}</span>
                                             </td>
                                             <td className="px-5 py-3.5 text-center">
-                                                {(s.score !== null && s.score !== undefined) || (s.grade !== null && s.grade !== undefined) ? (
-                                                    <span className="font-semibold text-emerald-600">{s.score ?? s.grade}</span>
-                                                ) : (
-                                                    <span className="text-gray-300">\u2014</span>
-                                                )}
+                                                <span className="font-semibold text-emerald-600">{s.grade !== null ? s.grade : "\u2014"}</span>
                                             </td>
                                             <td className="px-5 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center justify-center gap-2">
+                                                    <button onClick={() => openGradeModal(s)}
+                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 cursor-pointer"
+                                                        title="View & grade submission">
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
                                                     <button onClick={() => openGradeModal(s)}
                                                         className={`p-1.5 rounded-lg cursor-pointer ${isClickable ? "text-gray-400 hover:text-emerald-500 hover:bg-emerald-50" : "text-gray-200 cursor-not-allowed"}`}
                                                         disabled={!isClickable}
@@ -245,38 +281,94 @@ export default function SubmissionsPage() {
                 </div>
             )}
 
-            {/* Grade Modal */}
-            {selected && selected.status !== "MISSING" && selected.status !== "TO_DO" && (
+            {/* Grade / Detail Modal */}
+            {selected && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/40" onClick={() => { setSelected(null); setFormError(""); }} />
-                    <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg z-10">
+                    <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg z-10 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-gray-900">Grade Submission</h2>
+                            <h2 className="text-lg font-semibold text-gray-900">Grade Submission — {selected.studentName || selected.student}</h2>
                             <button onClick={() => { setSelected(null); setFormError(""); }} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-5 h-5" /></button>
                         </div>
-                        <div className="mb-4 p-4 rounded-lg bg-gray-50 border border-gray-100">
-                            <p className="text-sm font-medium text-gray-900">{selected.studentName || selected.student}</p>
-                            <p className="text-xs text-gray-500">{selected.studentId}</p>
+
+                        {/* Student Info */}
+                        <div className="space-y-2 mb-4 p-4 rounded-lg bg-gray-50 border border-gray-100 text-sm">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <span className="text-xs text-gray-500">Student</span>
+                                    <p className="font-medium text-gray-900">{selected.studentName || selected.student}</p>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-gray-500">Student ID</span>
+                                    <p className="font-medium text-gray-900">{selected.studentCode || selected.studentId}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <span className="text-xs text-gray-500">Class</span>
+                                    <p className="font-medium text-gray-900">{selected.className}</p>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-gray-500">Status</span>
+                                    <p className="font-medium text-gray-900">{STATUS_STYLES[selected.status]?.label || selected.status}</p>
+                                </div>
+                            </div>
                         </div>
-                        {formError && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>}
-                        <form onSubmit={handleGrade} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Score</label>
-                                <input type="number" step="0.5" value={gradeForm.score}
-                                    onChange={(e) => setGradeForm((p) => ({ ...p, score: e.target.value }))}
-                                    placeholder="Enter score" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400" />
+
+                        {/* Submitted Files */}
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Submitted Files</h3>
+                        {selected.fileUrls && selected.fileUrls.length > 0 ? (
+                            <div className="space-y-2 mb-4">
+                                {selected.fileUrls.map((fileUrl, index) => {
+                                    const cleanFileName = typeof fileUrl === "string" && fileUrl.includes("_")
+                                        ? fileUrl.split("_").slice(1).join("_")
+                                        : typeof fileUrl === "string" ? fileUrl : `File ${index + 1}`;
+                                    return (
+                                        <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                            <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                            <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{cleanFileName}</span>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <button type="button" onClick={() => handleFileAction(fileUrl, "preview")}
+                                                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer">Preview</button>
+                                                <button type="button" onClick={() => handleFileAction(fileUrl, "download")}
+                                                    className="text-xs font-medium text-emerald-600 hover:text-emerald-800 cursor-pointer">Download</button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Feedback</label>
-                                <textarea rows={3} value={gradeForm.feedback}
-                                    onChange={(e) => setGradeForm((p) => ({ ...p, feedback: e.target.value }))}
-                                    placeholder="Write feedback..." className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 resize-none" />
+                        ) : (
+                            <p className="text-sm text-gray-400 text-center py-4 mb-4">No files submitted.</p>
+                        )}
+
+                        {/* Grade Form (only if submissionId exists — student actually submitted) */}
+                        {selected.submissionId && selected.status !== "MISSING" && selected.status !== "TO_DO" ? (
+                            <>
+                                {formError && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>}
+                                <form onSubmit={handleGrade} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Score / Grade</label>
+                                        <input type="number" step="0.5" value={gradeForm.score}
+                                            onChange={(e) => setGradeForm((p) => ({ ...p, score: e.target.value }))}
+                                            placeholder="Enter score" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Feedback</label>
+                                        <textarea rows={3} value={gradeForm.feedback}
+                                            onChange={(e) => setGradeForm((p) => ({ ...p, feedback: e.target.value }))}
+                                            placeholder="Write feedback..." className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:border-emerald-400 resize-none" />
+                                    </div>
+                                    <button type="submit" disabled={saving}
+                                        className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold text-sm cursor-pointer flex items-center justify-center gap-2">
+                                        {saving ? "Saving..." : <><Send className="w-4 h-4" /> Submit Grade & Feedback</>}
+                                    </button>
+                                </form>
+                            </>
+                        ) : (
+                            <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-500 text-center">
+                                This student has not submitted yet. Grading is unavailable.
                             </div>
-                            <button type="submit" disabled={saving}
-                                className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold text-sm cursor-pointer flex items-center justify-center gap-2">
-                                {saving ? "Saving..." : <><Send className="w-4 h-4" /> Submit Grade & Feedback</>}
-                            </button>
-                        </form>
+                        )}
                     </div>
                 </div>
             )}

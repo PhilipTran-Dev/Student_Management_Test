@@ -67,9 +67,9 @@ export default function AssignmentListPage() {
         });
 
         if (sortBy === "due_soonest") {
-            result = [...result].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            result = [...result].sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
         } else if (sortBy === "highest_points") {
-            result = [...result].sort((a, b) => b.maxScore - a.maxScore);
+            result = [...result].sort((a, b) => b.maxMark - a.maxMark);
         }
 
         return result;
@@ -78,7 +78,7 @@ export default function AssignmentListPage() {
     const getUrgency = (a) => {
         if (a.state === "DONE") return 3;
         if (a.state === "MISSING") return 0;
-        const diff = new Date(a.dueDate) - new Date();
+        const diff = new Date(a.deadline) - new Date();
         if (diff < 0) return 1;
         return 2;
     };
@@ -205,14 +205,14 @@ export default function AssignmentListPage() {
                                             <span className="font-medium">{a.className || a.classId}</span>
                                             <span className="flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" />
-                                                Due: {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A"}
+                                                Due: {a.deadline ? new Date(a.deadline).toLocaleDateString() : "N/A"}
                                             </span>
-                                            <span>{a.maxScore} pts</span>
+                                            <span>{a.maxMark} pts</span>
                                         </div>
                                     </div>
                                     {a.state === "DONE" && a.earnedGrade !== null && a.earnedGrade !== undefined && (
                                         <div className="text-right flex-shrink-0">
-                                            <p className="text-sm font-bold text-emerald-600">{a.earnedGrade}/{a.maxScore}</p>
+                                            <p className="text-sm font-bold text-emerald-600">{a.earnedGrade}/{a.maxMark}</p>
                                             <p className="text-[10px] text-gray-400">points</p>
                                         </div>
                                     )}

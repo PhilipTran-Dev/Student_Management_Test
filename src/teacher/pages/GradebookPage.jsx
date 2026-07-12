@@ -33,14 +33,14 @@ export default function GradebookPage() {
             .finally(() => setLoading(false));
     }, [selectedClassId]);
 
-    const students = useMemo(() => {
-        if (!gradebookData) return [];
-        return gradebookData.students || gradebookData.rosters || [];
-    }, [gradebookData]);
-
     const assignments = useMemo(() => {
         if (!gradebookData) return [];
-        return gradebookData.assignments || gradebookData.assessments || [];
+        return gradebookData.assignments || [];
+    }, [gradebookData]);
+
+    const studentRows = useMemo(() => {
+        if (!gradebookData) return [];
+        return gradebookData.studentRows || [];
     }, [gradebookData]);
 
     const hasActiveFilters = searchQuery.trim() !== "" || performanceFilter !== "all";
@@ -50,46 +50,35 @@ export default function GradebookPage() {
         setPerformanceFilter("all");
     };
 
-    const getStudentScore = (student, assignmentId) => {
-        const scores = student.scores || student.grades || [];
-        const found = scores.find(
-            (s) => String(s.assignmentId || s.id) === String(assignmentId)
-        );
-        return found ? found.score ?? found.grade ?? "-" : "-";
-    };
-
-    const calcWeightedAverage = (student) => {
-        const scores = student.scores || student.grades || [];
-        if (scores.length === 0) return 0;
+    const calcWeightedAverage = (row) => {
+        if (!assignments.length) return 0;
         let totalWeight = 0;
         let weightedSum = 0;
-        scores.forEach((s, idx) => {
-            const maxScore = s.maxScore || 100;
-            const score = s.score ?? s.grade;
+        assignments.forEach((a) => {
+            const maxMark = a.maxMark || 100;
+            const score = row.grades?.[a.id];
             if (score !== null && score !== undefined) {
-                const weight = assignments[idx]?.weight || assignments[idx]?.maxScore || 1;
-                totalWeight += weight;
-                weightedSum += (score / maxScore) * weight;
+                totalWeight += maxMark;
+                weightedSum += (score / maxMark) * maxMark;
             }
         });
         return totalWeight > 0 ? (weightedSum / totalWeight) * 100 : 0;
     };
 
-    const filteredStudents = useMemo(() => {
-        return students.filter((s) => {
+    const filteredRows = useMemo(() => {
+        return studentRows.filter((row) => {
             const q = searchQuery.trim().toLowerCase();
-            const matchSearch = !q || (s.studentName || s.name || "").toLowerCase().includes(q) || (s.studentId || "").toLowerCase().includes(q);
-
+            const matchSearch = !q || (row.studentName || "").toLowerCase().includes(q) || (row.studentCode || row.studentId || "").toLowerCase().includes(q);
             let matchPerformance = performanceFilter === "all";
             if (!matchPerformance) {
-                const avg = calcWeightedAverage(s);
+                const avg = calcWeightedAverage(row);
                 if (performanceFilter === "excellent") matchPerformance = avg >= 90;
                 else if (performanceFilter === "passing") matchPerformance = avg >= 60 && avg < 90;
                 else if (performanceFilter === "struggling") matchPerformance = avg < 60;
             }
             return matchSearch && matchPerformance;
         });
-    }, [students, searchQuery, performanceFilter]);
+    }, [studentRows, searchQuery, performanceFilter, assignments]);
 
     const handleExport = () => {
         alert("Gradebook export triggered. Download will start from the backend.");
@@ -120,7 +109,6 @@ export default function GradebookPage() {
                 <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
             )}
 
-            {/* Search & Filter Row */}
             <div className="mb-4 flex flex-col sm:flex-row gap-3">
                 <div className="relative w-full sm:w-56">
                     <School className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -155,18 +143,16 @@ export default function GradebookPage() {
                 )}
             </div>
 
-            {/* Results count */}
             <p className="text-xs text-gray-400 mb-3">
-                {loading ? "Loading..." : `${filteredStudents.length} student${filteredStudents.length !== 1 ? "s" : ""} found`}
+                {loading ? "Loading..." : `${filteredRows.length} student${filteredRows.length !== 1 ? "s" : ""} found`}
             </p>
 
-            {/* Table */}
             {loading ? (
                 <div className="flex items-center justify-center py-16">
                     <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
                     <span className="ml-2 text-gray-400 text-sm">Loading...</span>
                 </div>
-            ) : filteredStudents.length === 0 ? (
+            ) : filteredRows.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
                     <GraduationCap className="w-12 h-12 mx-auto mb-3" />
                     <p className="text-sm font-medium">No students match your criteria</p>
@@ -178,29 +164,32 @@ export default function GradebookPage() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="text-left px-5 py-3 font-semibold text-gray-700 w-48">Student</th>
+                                    <th className="text-left px-5 py-3 font-semibold text-gray-700 w-48">Student Name</th>
+                                    <th className="text-left px-5 py-3 font-semibold text-gray-700 w-32">Student ID</th>
                                     {assignments.map((a) => (
-                                        <th key={a.id || a.assignmentId} className="text-center px-4 py-3 font-semibold text-gray-700 text-xs">
-                                            {a.name || a.title}
+                                        <th key={a.id} className="text-center px-4 py-3 font-semibold text-gray-700 text-xs">
+                                            {a.title}<br /><span className="font-normal text-gray-400">({a.maxMark} pts)</span>
                                         </th>
                                     ))}
                                     <th className="text-center px-5 py-3 font-semibold text-gray-700">Weighted Avg</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredStudents.map((s, idx) => {
-                                    const avg = calcWeightedAverage(s);
+                                {filteredRows.map((row, idx) => {
+                                    const avg = calcWeightedAverage(row);
                                     return (
-                                        <tr key={s.studentId || s.id} className={`${idx < filteredStudents.length - 1 ? "border-b border-gray-100" : ""} hover:bg-gray-50`}>
+                                        <tr key={row.studentId} className={`${idx < filteredRows.length - 1 ? "border-b border-gray-100" : ""} hover:bg-gray-50`}>
                                             <td className="px-5 py-3.5">
-                                                <p className="font-medium text-gray-900">{s.studentName || s.name}</p>
-                                                <p className="text-xs text-gray-400">{s.studentId}</p>
+                                                <p className="font-medium text-gray-900">{row.studentName}</p>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="text-sm text-gray-600">{row.studentCode || row.studentId}</span>
                                             </td>
                                             {assignments.map((a) => {
-                                                const score = getStudentScore(s, a.id || a.assignmentId);
+                                                const score = row.grades?.[a.id];
                                                 return (
-                                                    <td key={a.id || a.assignmentId} className="text-center px-4 py-3.5 font-medium text-gray-900">
-                                                        {score}
+                                                    <td key={a.id} className="text-center px-4 py-3.5 font-medium text-gray-900">
+                                                        {score !== null && score !== undefined ? score : "\u2014"}
                                                     </td>
                                                 );
                                             })}

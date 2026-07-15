@@ -19,4 +19,4 @@ services:
 networks:
   classroom-network:
     external: true
-    name: student_managementbe_classroom-network
+    name: classroom-network

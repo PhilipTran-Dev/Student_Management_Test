@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ClipboardList, Plus, X, Calendar, FileText, Trash2, Clock, Search, Filter, BookOpen, Loader2 } from "lucide-react";
+import { ClipboardList, Plus, X, Calendar, FileText, Clock, Search, Filter, BookOpen, Loader2 } from "lucide-react";
 import { fetchClasses } from "../../services/classService";
 import { createAssignment, getTeacherAssignments } from "../../services/assignmentService";
 
@@ -11,7 +11,6 @@ export default function AssignmentListPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [showCreate, setShowCreate] = useState(false);
-    const [showDelete, setShowDelete] = useState(null);
     const [form, setForm] = useState({ title: "", description: "", due: "", points: "", classId: "" });
     const [formError, setFormError] = useState("");
     const [creating, setCreating] = useState(false);
@@ -94,11 +93,6 @@ export default function AssignmentListPage() {
         } finally {
             setCreating(false);
         }
-    };
-
-    const handleDelete = async (id) => {
-        setAssignments((prev) => prev.filter((a) => a.id !== id));
-        setShowDelete(null);
     };
 
     const handleFileSelect = (e) => {
@@ -191,11 +185,7 @@ export default function AssignmentListPage() {
                                         <span>{a.maxMark || "-"} pts</span>
                                     </div>
                                 </Link>
-                                <div className="flex gap-1 flex-shrink-0">
-                                    <button onClick={(e) => { e.preventDefault(); setShowDelete(assignmentId); }} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 cursor-pointer" title="Delete">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+
                             </div>
                         );
                     })}
@@ -270,20 +260,6 @@ export default function AssignmentListPage() {
                 </div>
             )}
 
-            {/* Delete Confirm */}
-            {showDelete && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-black/40" onClick={() => setShowDelete(null)} />
-                    <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm z-10 text-center">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete Assignment?</h2>
-                        <p className="text-sm text-gray-500 mb-6">All submissions for this assignment will also be removed.</p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowDelete(null)} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium cursor-pointer">Cancel</button>
-                            <button onClick={() => handleDelete(showDelete)} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium cursor-pointer">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

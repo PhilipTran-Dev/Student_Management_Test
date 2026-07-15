@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, FileText, Edit3, Trash2, X, Plus, Loader2, AlertTriangle, Upload } from "lucide-react";
-import { getTeacherAssignmentById, updateAssignment, getTeacherAssignments, getAttachmentUrl, deleteAssignment, deleteFile } from "../../services/assignmentService";
+import { useParams, useLocation, Link } from "react-router-dom";
+import { ArrowLeft, Calendar, FileText, Edit3, X, Plus, Loader2, AlertTriangle, Upload } from "lucide-react";
+import { getTeacherAssignmentById, updateAssignment, getTeacherAssignments, getAttachmentUrl, deleteFile } from "../../services/assignmentService";
 import { fetchClasses } from "../../services/classService";
 
 export default function AssignmentDetailPage() {
@@ -14,12 +14,9 @@ export default function AssignmentDetailPage() {
     const [loading, setLoading] = useState(!assignmentFromState);
     const [error, setError] = useState("");
     const [showEdit, setShowEdit] = useState(false);
-    const [showDelete, setShowDelete] = useState(false);
     const [formError, setFormError] = useState("");
     const [saving, setSaving] = useState(false);
     const [newFiles, setNewFiles] = useState([]);
-    const navigate = useNavigate();
-
     const [editForm, setEditForm] = useState({
         title: "",
         description: "",
@@ -197,15 +194,6 @@ export default function AssignmentDetailPage() {
         }
     };
 
-    const handleDelete = async () => {
-        try {
-            await deleteAssignment(assignmentId);
-            navigate("/teacher/assignments");
-        } catch (error) {
-            alert("Failed to delete assignment");
-        }
-    };
-
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
@@ -244,9 +232,6 @@ export default function AssignmentDetailPage() {
                                 <button onClick={openEditModal}
                                     className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 cursor-pointer">
                                     <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => setShowDelete(true)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 cursor-pointer">
-                                    <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
@@ -380,20 +365,6 @@ export default function AssignmentDetailPage() {
                 </div>
             )}
 
-            {/* Delete Confirm */}
-            {showDelete && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-black/40" onClick={() => setShowDelete(false)} />
-                    <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm z-10 text-center">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete?</h2>
-                        <p className="text-sm text-gray-500 mb-6">This action cannot be undone.</p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowDelete(false)} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium cursor-pointer">Cancel</button>
-                            <button onClick={handleDelete} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium cursor-pointer">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

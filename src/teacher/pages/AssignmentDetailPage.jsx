@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { useParams, useLocation, Link } from "react-router-dom";
-import { ArrowLeft, Calendar, FileText, Edit3, X, Plus, Loader2, AlertTriangle, Upload } from "lucide-react";
-import { getTeacherAssignmentById, updateAssignment, getTeacherAssignments, getAttachmentUrl, deleteFile } from "../../services/assignmentService";
+import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, Calendar, FileText, Edit3, Trash2, X, Plus, Loader2, AlertTriangle, Upload } from "lucide-react";
+import { getTeacherAssignmentById, updateAssignment, deleteAssignment, getTeacherAssignments, getAttachmentUrl, deleteFile } from "../../services/assignmentService";
 import { fetchClasses } from "../../services/classService";
 
 export default function AssignmentDetailPage() {
     const { assignmentId } = useParams();
     const location = useLocation();
+    const navigate = useNavigate();
     const classIdFromState = location.state?.classId;
     const assignmentFromState = location.state?.assignment;
 
@@ -194,6 +195,17 @@ export default function AssignmentDetailPage() {
         }
     };
 
+    const handleDeleteAssignment = async () => {
+        const confirmed = window.confirm("Are you sure you want to permanently delete this assignment?");
+        if (!confirmed) return;
+        try {
+            await deleteAssignment(assignmentId);
+            navigate("/teacher/assignments");
+        } catch (err) {
+            alert(err.response?.data?.message || "Failed to delete assignment");
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
@@ -232,6 +244,10 @@ export default function AssignmentDetailPage() {
                                 <button onClick={openEditModal}
                                     className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 cursor-pointer">
                                     <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button onClick={handleDeleteAssignment}
+                                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 cursor-pointer">
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

@@ -103,15 +103,15 @@ export default function SubmissionsPage() {
         const submissionId = selected.submissionId || selected.id;
         setSaving(true);
         try {
-            const response = await gradeSubmission(submissionId, {
+            const result = await gradeSubmission(submissionId, {
                 grade: parseFloat(gradeForm.score),
                 feedback: gradeForm.feedback,
             });
-            const updated = response.data;
+            const data = result?.data ?? result;
             setSubmissions((prev) =>
                 prev.map((s) =>
                     (s.submissionId === submissionId || s.id === submissionId)
-                        ? { ...s, grade: updated.grade, feedback: updated.feedback }
+                        ? { ...s, grade: data?.grade ?? parseFloat(gradeForm.score), feedback: data?.feedback ?? gradeForm.feedback }
                         : s
                 )
             );

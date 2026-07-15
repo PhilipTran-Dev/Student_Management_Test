@@ -1,7 +1,6 @@
 import { assignmentApi } from "./api";
 
-const ASSIGNMENTS_BASE = "/api/v1/assignments";
-
+const ASSIGNMENTS_BASE = "/v1/assignments";
 // ─── Teacher endpoints ─────────────────────────────────────────
 
 export const createAssignment = async (formData) => {

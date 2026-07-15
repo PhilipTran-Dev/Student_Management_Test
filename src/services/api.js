@@ -1,30 +1,14 @@
 import axios from "axios";
-
-/**
- * User-service API client (auth, registration, user management)
- * Uses relative path `/api` — Vite dev proxy or Nginx reverse proxy
- * routes requests to the actual user-service backend.
- */
 export const userApi = axios.create({
-    baseURL: "/api",
+    baseURL: import.meta.env.VITE_API_URL || "/api",
 });
 
-/**
- * Class-service API client (classes, announcements, materials, etc.)
- * Uses relative path `/class-api` — Vite dev proxy or Nginx reverse proxy
- * routes requests to the actual class-service backend.
- */
 export const classApi = axios.create({
-    baseURL: "/class-api",
+    baseURL: import.meta.env.VITE_CLASS_API_URL || "/class-api",
 });
 
-/**
- * Assignment & Grading service API client
- * Uses relative path `/assignment-api` — Vite dev proxy or Nginx reverse proxy
- * routes requests to the actual assignment-service backend.
- */
 export const assignmentApi = axios.create({
-    baseURL: "/assignment-api",
+    baseURL: import.meta.env.VITE_ASSIGNMENT_API_URL || "/assignment-api",
 });
 
 // ─── Shared interceptors ────────────────────────────────────────

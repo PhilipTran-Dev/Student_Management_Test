@@ -10,6 +10,12 @@ export const classApi = axios.create({
 export const assignmentApi = axios.create({
     baseURL: import.meta.env.VITE_ASSIGNMENT_API_URL || "/assignment-api",
 });
+export const userApi = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
+export const classApi = axios.create({ baseURL: import.meta.env.VITE_CLASS_API_URL || "/class-api" });
+export const assignmentApi = axios.create({ baseURL: import.meta.env.VITE_ASSIGNMENT_API_URL || "/assignment-api" });
+
+
+
 
 // ─── Shared interceptors ────────────────────────────────────────
 

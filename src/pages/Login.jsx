@@ -50,7 +50,7 @@ export default function Login() {
             };
 
             const response = await userApi.post(
-                `/v1/auth/login/${activeRole.toLowerCase()}`,
+                `/v1/auth/${activeRole.toLowerCase()}/login`,
                 loginPayload
             );
 
@@ -82,7 +82,7 @@ export default function Login() {
         } catch (err) {
             const errorMsg = err.response?.data?.message || "Login failed";
             if (err.code === "ERR_NETWORK") {
-                setServerError("Backend authentication server is offline. Please check port 8081.");
+                setServerError("Cannot connect to API Gateway. Please check port 8080 or server network connection.");
             } else if (errorMsg === "This account have been locked") {
                 setServerError("This account have been locked");
             } else if (err.response?.status === 403) {

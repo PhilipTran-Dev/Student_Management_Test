@@ -26,6 +26,6 @@ jobs:
 
       - name: run Container Docker
         run: |
-          export VITE_API_URL="http://192.168.66.133:8080/api"
-          docker compose build frontend
+          # SỬA DÒNG NÀY: Truyền trực tiếp build-arg vào Docker Compose
+          docker compose build --build-arg VITE_API_URL="http://192.168.66.133:8080/api" frontend
           docker compose up -d frontend

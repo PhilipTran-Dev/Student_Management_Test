@@ -68,7 +68,7 @@ export default function AdminLogin() {
         } catch (err) {
             const errorMsg = err.response?.data?.message || "Login failed";
             if (err.code === "ERR_NETWORK") {
-                setServerError("Backend authentication server is offline. Please check port 8081.");
+                setServerError("Cannot connect to API Gateway. Please check port 8080 or server network connection.");
             } else if (errorMsg === "This account have been locked") {
                 setServerError("This account have been locked");
             } else if (err.response?.status === 403) {

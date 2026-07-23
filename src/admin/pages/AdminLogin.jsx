@@ -71,6 +71,8 @@ export default function AdminLogin() {
                 setServerError("Backend authentication server is offline. Please check port 8081.");
             } else if (errorMsg === "This account have been locked") {
                 setServerError("This account have been locked");
+            } else if (err.response?.status === 403) {
+                setServerError("Access denied: Your account does not have permission to access this portal.");
             } else {
                 setServerError(errorMsg);
             }

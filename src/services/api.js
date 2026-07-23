@@ -1,23 +1,12 @@
 import axios from "axios";
-export const userApi = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "/api",
-});
 
-export const classApi = axios.create({
-    baseURL: import.meta.env.VITE_CLASS_API_URL || "/class-api",
-});
+const GATEWAY_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 
-export const assignmentApi = axios.create({
-    baseURL: import.meta.env.VITE_ASSIGNMENT_API_URL || "/assignment-api",
-});
-// export const userApi = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
-// export const classApi = axios.create({ baseURL: import.meta.env.VITE_CLASS_API_URL || "/class-api" });
-// export const assignmentApi = axios.create({ baseURL: import.meta.env.VITE_ASSIGNMENT_API_URL || "/assignment-api" });
+export const userApi = axios.create({ baseURL: GATEWAY_BASE_URL });
+export const classApi = axios.create({ baseURL: GATEWAY_BASE_URL });
+export const assignmentApi = axios.create({ baseURL: GATEWAY_BASE_URL });
 
-
-
-
-// ─── Shared interceptors ────────────────────────────────────────
+// ─── Shared Interceptors ────────────────────────────────────────
 
 const attachTokenInterceptor = (config) => {
     const token = localStorage.getItem("token");
@@ -33,8 +22,8 @@ const refreshTokenInterceptor = (axiosInstance) => async (error) => {
         try {
             const refreshToken = localStorage.getItem("refreshToken");
             if (refreshToken) {
-                // Use the userApi instance so the request goes through the proxy
-                const res = await userApi.post("/v1/auth/refresh", { refreshToken });
+                // Đã sửa endpoint chuẩn: /v1/auth/refresh-token
+                const res = await userApi.post("/v1/auth/refresh-token", { refreshToken });
                 const { token: newToken } = res.data;
                 localStorage.setItem("token", newToken);
                 error.config.headers.Authorization = `Bearer ${newToken}`;
@@ -48,23 +37,12 @@ const refreshTokenInterceptor = (axiosInstance) => async (error) => {
     return Promise.reject(error);
 };
 
-// Attach request interceptor to both instances
 userApi.interceptors.request.use(attachTokenInterceptor);
 classApi.interceptors.request.use(attachTokenInterceptor);
 assignmentApi.interceptors.request.use(attachTokenInterceptor);
 
-// Attach response interceptor to both instances
-userApi.interceptors.response.use(
-    (response) => response,
-    refreshTokenInterceptor(userApi)
-);
-classApi.interceptors.response.use(
-    (response) => response,
-    refreshTokenInterceptor(classApi)
-);
-assignmentApi.interceptors.response.use(
-    (response) => response,
-    refreshTokenInterceptor(assignmentApi)
-);
+userApi.interceptors.response.use((response) => response, refreshTokenInterceptor(userApi));
+classApi.interceptors.response.use((response) => response, refreshTokenInterceptor(classApi));
+assignmentApi.interceptors.response.use((response) => response, refreshTokenInterceptor(assignmentApi));
 
 export default userApi;

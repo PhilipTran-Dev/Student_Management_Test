@@ -16,7 +16,6 @@ jobs:
 
       - name: Clean old Container avoid conflict
         run: |
-          # Tắt cụm compose FE hiện tại dựa trên file cấu hình chuẩn trong repo
           docker compose down || true
           
           TARGET_PORT_CONTAINER=$(docker ps -q --filter publish=5173)

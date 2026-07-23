@@ -27,7 +27,6 @@ jobs:
 
       - name: run Container Docker
         run: |
-          # Đổi thành IP Máy ảo (cổng NGINX), KHÔNG dùng cổng 8081 của user-service
-          export VITE_API_URL="http://192.168.66.133"
+          export VITE_API_URL="http://192.168.66.133:8080/api"
           docker compose build frontend
           docker compose up -d frontend
